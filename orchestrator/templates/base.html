@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Tournament Platform{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+    </style>
+    {% block head %}{% endblock %}
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-gray-800 border-b border-gray-700">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center">
+                    <a href="/" class="flex items-center space-x-2">
+                        <i data-lucide="trophy" class="w-8 h-8 text-yellow-500"></i>
+                        <span class="text-xl font-bold">Tournament Platform</span>
+                    </a>
+                    <div class="hidden md:block ml-10">
+                        <div class="flex items-baseline space-x-4">
+                            <a href="/" class="px-3 py-2 rounded-md text-sm font-medium {% if active_page == 'home' %}bg-gray-900 text-white{% else %}text-gray-300 hover:bg-gray-700 hover:text-white{% endif %}">
+                                Home
+                            </a>
+                            <a href="/tournaments" class="px-3 py-2 rounded-md text-sm font-medium {% if active_page == 'tournaments' %}bg-gray-900 text-white{% else %}text-gray-300 hover:bg-gray-700 hover:text-white{% endif %}">
+                                Tournaments
+                            </a>
+                            <a href="/dashboard" class="px-3 py-2 rounded-md text-sm font-medium {% if active_page == 'dashboard' %}bg-gray-900 text-white{% else %}text-gray-300 hover:bg-gray-700 hover:text-white{% endif %}">
+                                Dashboard
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div id="connection-status" class="flex items-center space-x-2 text-sm">
+                        <span class="w-2 h-2 rounded-full bg-gray-500" id="status-dot"></span>
+                        <span id="status-text">Connecting...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed bottom-4 right-4 space-y-2 z-50"></div>
+
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+
+        // Toast notifications
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const colors = {
+                'info': 'bg-blue-600',
+                'success': 'bg-green-600',
+                'error': 'bg-red-600',
+                'warning': 'bg-yellow-600'
+            };
+            toast.className = `${colors[type]} text-white px-4 py-3 rounded-lg shadow-lg transform transition-all duration-300 translate-x-full`;
+            toast.textContent = message;
+            container.appendChild(toast);
+            
+            setTimeout(() => toast.classList.remove('translate-x-full'), 10);
+            setTimeout(() => {
+                toast.classList.add('translate-x-full');
+                setTimeout(() => toast.remove(), 300);
+            }, 5000);
+        }
+
+        // SSE connection for real-time updates
+        let eventSource = null;
+        
+        function connectSSE(endpoint) {
+            if (eventSource) eventSource.close();
+            
+            eventSource = new EventSource(endpoint);
+            
+            eventSource.onopen = () => {
+                document.getElementById('status-dot').className = 'w-2 h-2 rounded-full bg-green-500';
+                document.getElementById('status-text').textContent = 'Connected';
+            };
+            
+            eventSource.onerror = () => {
+                document.getElementById('status-dot').className = 'w-2 h-2 rounded-full bg-red-500';
+                document.getElementById('status-text').textContent = 'Disconnected';
+            };
+            
+            eventSource.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleEvent(data);
+            };
+        }
+
+        function handleEvent(event) {
+            console.log('Event received:', event);
+            
+            switch(event.type) {
+                case 'tournament.published':
+                    showToast('New tournament available!', 'info');
+                    break;
+                case 'tournament.started':
+                    showToast('Tournament has started!', 'success');
+                    break;
+                case 'match.result':
+                    showToast(`Match completed: ${event.data?.winner} wins!`, 'info');
+                    break;
+                case 'tournament.completed':
+                    showToast('Tournament completed!', 'success');
+                    break;
+            }
+            
+            // Dispatch custom event for page-specific handlers
+            window.dispatchEvent(new CustomEvent('tournament-event', { detail: event }));
+        }
+
+        // Connect to global events by default
+        connectSSE('/api/v1/events/global');
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

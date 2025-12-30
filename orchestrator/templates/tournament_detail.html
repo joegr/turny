@@ -1,0 +1,314 @@
+{% extends "base.html" %}
+
+{% block title %}{{ tournament.name }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Back Link -->
+    <a href="/tournaments" class="text-gray-400 hover:text-white flex items-center space-x-1">
+        <i data-lucide="arrow-left" class="w-4 h-4"></i>
+        <span>Back to Tournaments</span>
+    </a>
+
+    <!-- Header -->
+    <div class="bg-gray-800 rounded-lg border border-gray-700 p-6">
+        <div class="flex justify-between items-start">
+            <div>
+                <div class="flex items-center space-x-3 mb-2">
+                    <h1 class="text-3xl font-bold">{{ tournament.name }}</h1>
+                    <span class="px-3 py-1 rounded-full text-sm font-semibold
+                        {% if tournament.status == 'draft' %}bg-gray-700 text-gray-300{% endif %}
+                        {% if tournament.status == 'registration' %}bg-blue-900 text-blue-300{% endif %}
+                        {% if tournament.status == 'active' %}bg-green-900 text-green-300{% endif %}
+                        {% if tournament.status == 'completed' %}bg-yellow-900 text-yellow-300{% endif %}
+                    ">
+                        {{ tournament.status.upper() }}
+                    </span>
+                </div>
+                <div class="flex items-center space-x-6 text-gray-400">
+                    <span class="flex items-center space-x-1">
+                        <i data-lucide="layout-grid" class="w-4 h-4"></i>
+                        <span class="capitalize">{{ tournament.tournament_type.replace('_', ' ') }}</span>
+                    </span>
+                    <span class="flex items-center space-x-1">
+                        <i data-lucide="users" class="w-4 h-4"></i>
+                        <span>{{ tournament.teams|length }}/{{ tournament.max_teams }} teams</span>
+                    </span>
+                    {% if tournament.current_round > 0 %}
+                    <span class="flex items-center space-x-1">
+                        <i data-lucide="repeat" class="w-4 h-4"></i>
+                        <span>Round {{ tournament.current_round }}</span>
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="flex space-x-2">
+                {% if tournament.status == 'draft' %}
+                <button onclick="publishTournament()" class="bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold py-2 px-4 rounded-lg flex items-center space-x-2">
+                    <i data-lucide="send" class="w-5 h-5"></i>
+                    <span>Publish</span>
+                </button>
+                <button onclick="deleteTournament()" class="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg flex items-center space-x-2">
+                    <i data-lucide="trash-2" class="w-5 h-5"></i>
+                    <span>Delete</span>
+                </button>
+                {% elif tournament.status == 'registration' %}
+                <button onclick="startTournament()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center space-x-2" {% if tournament.teams|length < tournament.min_teams %}disabled{% endif %}>
+                    <i data-lucide="play" class="w-5 h-5"></i>
+                    <span>Start Tournament</span>
+                </button>
+                {% elif tournament.status == 'active' and tournament.service_url %}
+                <a href="/tournaments/{{ tournament.tournament_id }}/live" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center space-x-2">
+                    <i data-lucide="external-link" class="w-5 h-5"></i>
+                    <span>Open Live View</span>
+                </a>
+                {% elif tournament.status == 'completed' %}
+                <button onclick="archiveTournament()" class="bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded-lg flex items-center space-x-2">
+                    <i data-lucide="archive" class="w-5 h-5"></i>
+                    <span>Archive</span>
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Teams Section -->
+        <div class="lg:col-span-2 bg-gray-800 rounded-lg border border-gray-700">
+            <div class="px-6 py-4 border-b border-gray-700 flex justify-between items-center">
+                <h2 class="text-xl font-semibold">Teams</h2>
+                {% if tournament.status == 'registration' %}
+                <button onclick="showRegisterModal()" class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg text-sm flex items-center space-x-1">
+                    <i data-lucide="user-plus" class="w-4 h-4"></i>
+                    <span>Register Team</span>
+                </button>
+                {% endif %}
+            </div>
+            <div class="p-6">
+                {% if tournament.teams %}
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {% for team in tournament.teams %}
+                    <div class="bg-gray-700 rounded-lg p-4">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="font-semibold">{{ team.name }}</h3>
+                                <p class="text-sm text-gray-400">Captain: {{ team.captain }}</p>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-green-400">{{ team.wins }}W</span>
+                                <span class="text-gray-500">/</span>
+                                <span class="text-red-400">{{ team.losses }}L</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-gray-500 text-center py-8">No teams registered yet</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Info Panel -->
+        <div class="space-y-6">
+            <!-- Tournament Info -->
+            <div class="bg-gray-800 rounded-lg border border-gray-700 p-6">
+                <h3 class="font-semibold mb-4">Tournament Info</h3>
+                <dl class="space-y-3 text-sm">
+                    <div class="flex justify-between">
+                        <dt class="text-gray-400">ID</dt>
+                        <dd class="font-mono text-xs">{{ tournament.tournament_id }}</dd>
+                    </div>
+                    <div class="flex justify-between">
+                        <dt class="text-gray-400">Type</dt>
+                        <dd class="capitalize">{{ tournament.tournament_type.replace('_', ' ') }}</dd>
+                    </div>
+                    <div class="flex justify-between">
+                        <dt class="text-gray-400">Min Teams</dt>
+                        <dd>{{ tournament.min_teams }}</dd>
+                    </div>
+                    <div class="flex justify-between">
+                        <dt class="text-gray-400">Max Teams</dt>
+                        <dd>{{ tournament.max_teams }}</dd>
+                    </div>
+                    {% if tournament.service_url %}
+                    <div class="flex justify-between">
+                        <dt class="text-gray-400">Service</dt>
+                        <dd class="text-green-400">Running</dd>
+                    </div>
+                    {% endif %}
+                </dl>
+            </div>
+
+            <!-- Subscribe -->
+            <div class="bg-gray-800 rounded-lg border border-gray-700 p-6">
+                <h3 class="font-semibold mb-4">Notifications</h3>
+                <button onclick="subscribe()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg flex items-center justify-center space-x-2">
+                    <i data-lucide="bell" class="w-4 h-4"></i>
+                    <span>Subscribe to Updates</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Register Team Modal -->
+<div id="register-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
+        <h3 class="text-xl font-bold mb-4">Register Team</h3>
+        <form id="register-form" class="space-y-4">
+            <div>
+                <label class="block text-sm text-gray-400 mb-1">Team Name</label>
+                <input type="text" name="name" required class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:border-yellow-500">
+            </div>
+            <div>
+                <label class="block text-sm text-gray-400 mb-1">Captain Name</label>
+                <input type="text" name="captain" required class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:border-yellow-500">
+            </div>
+            <div class="flex space-x-3">
+                <button type="submit" class="flex-1 bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold py-2 rounded-lg">
+                    Register
+                </button>
+                <button type="button" onclick="hideRegisterModal()" class="flex-1 bg-gray-700 hover:bg-gray-600 py-2 rounded-lg">
+                    Cancel
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const tournamentId = '{{ tournament.tournament_id }}';
+    
+    function showRegisterModal() {
+        document.getElementById('register-modal').classList.remove('hidden');
+        document.getElementById('register-modal').classList.add('flex');
+    }
+    
+    function hideRegisterModal() {
+        document.getElementById('register-modal').classList.add('hidden');
+        document.getElementById('register-modal').classList.remove('flex');
+    }
+    
+    document.getElementById('register-form').onsubmit = async (e) => {
+        e.preventDefault();
+        const form = e.target;
+        const data = {
+            name: form.name.value,
+            captain: form.captain.value
+        };
+        
+        try {
+            const resp = await fetch(`/api/v1/tournaments/${tournamentId}/teams`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            if (resp.ok) {
+                showToast('Team registered successfully!', 'success');
+                location.reload();
+            } else {
+                const err = await resp.json();
+                showToast(err.error || 'Failed to register team', 'error');
+            }
+        } catch (err) {
+            showToast('Failed to register team', 'error');
+        }
+    };
+    
+    async function publishTournament() {
+        if (!confirm('Publish this tournament and open registration?')) return;
+        
+        try {
+            const resp = await fetch(`/api/v1/tournaments/${tournamentId}/publish`, { method: 'POST' });
+            if (resp.ok) {
+                showToast('Tournament published!', 'success');
+                location.reload();
+            } else {
+                const err = await resp.json();
+                showToast(err.error || 'Failed to publish', 'error');
+            }
+        } catch (err) {
+            showToast('Failed to publish tournament', 'error');
+        }
+    }
+    
+    async function startTournament() {
+        if (!confirm('Start the tournament? Registration will close.')) return;
+        
+        try {
+            const resp = await fetch(`/api/v1/tournaments/${tournamentId}/proxy/start`, { method: 'POST' });
+            if (resp.ok) {
+                showToast('Tournament started!', 'success');
+                location.reload();
+            } else {
+                const err = await resp.json();
+                showToast(err.error || 'Failed to start', 'error');
+            }
+        } catch (err) {
+            showToast('Failed to start tournament', 'error');
+        }
+    }
+    
+    async function deleteTournament() {
+        if (!confirm('Delete this tournament? This cannot be undone.')) return;
+        
+        try {
+            const resp = await fetch(`/api/v1/tournaments/${tournamentId}`, { method: 'DELETE' });
+            if (resp.ok) {
+                showToast('Tournament deleted', 'success');
+                location.href = '/tournaments';
+            } else {
+                const err = await resp.json();
+                showToast(err.error || 'Failed to delete', 'error');
+            }
+        } catch (err) {
+            showToast('Failed to delete tournament', 'error');
+        }
+    }
+    
+    async function archiveTournament() {
+        if (!confirm('Archive this tournament?')) return;
+        
+        try {
+            const resp = await fetch(`/api/v1/tournaments/${tournamentId}/archive`, { method: 'POST' });
+            if (resp.ok) {
+                showToast('Tournament archived', 'success');
+                location.reload();
+            } else {
+                const err = await resp.json();
+                showToast(err.error || 'Failed to archive', 'error');
+            }
+        } catch (err) {
+            showToast('Failed to archive tournament', 'error');
+        }
+    }
+    
+    async function subscribe() {
+        const userId = prompt('Enter your user ID:');
+        if (!userId) return;
+        
+        try {
+            const resp = await fetch('/api/v1/subscriptions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: userId, tournament_id: tournamentId })
+            });
+            
+            if (resp.ok) {
+                showToast('Subscribed to tournament updates!', 'success');
+            } else {
+                const err = await resp.json();
+                showToast(err.error || 'Failed to subscribe', 'error');
+            }
+        } catch (err) {
+            showToast('Failed to subscribe', 'error');
+        }
+    }
+    
+    lucide.createIcons();
+</script>
+{% endblock %}

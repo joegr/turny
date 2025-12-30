@@ -14,27 +14,46 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - tournament-network
 
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
     command: redis-server --save "" --appendonly no
+    networks:
+      - tournament-network
 
-  web:
-    build: .
+  orchestrator:
+    build:
+      context: .
+      dockerfile: Dockerfile.orchestrator
     ports:
       - "5000:5000"
+      - "6001-6020:6001-6020"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_started
     environment:
+      - FLASK_ENV=development
       - REDIS_URL=redis://redis:6379
       - DATABASE_URL=postgresql://tournament:tournament123@postgres:5432/tournament_db
+      - TOURNAMENT_SERVICE_HOST=localhost
+      - TOURNAMENT_SERVICE_BASE_PORT=6001
+      - USE_DOCKER=false
     volumes:
-      - ./static:/app/static
+      - ./orchestrator:/app/orchestrator
+      - ./shared:/app/shared
+      - ./tournament_service:/app/tournament_service
+    networks:
+      - tournament-network
+
+networks:
+  tournament-network:
+    driver: bridge
 
 volumes:
   postgres_data:

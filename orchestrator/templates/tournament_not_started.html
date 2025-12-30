@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}Tournament Not Started{% endblock %}
+
+{% block content %}
+<div class="text-center py-20">
+    <i data-lucide="clock" class="w-24 h-24 mx-auto text-gray-600 mb-6"></i>
+    <h1 class="text-4xl font-bold mb-4">Tournament Not Active</h1>
+    <p class="text-gray-400 mb-2">{{ tournament.name }}</p>
+    <p class="text-gray-500 mb-8">This tournament hasn't started yet. The live view will be available once it begins.</p>
+    <div class="flex justify-center space-x-4">
+        <a href="/tournaments/{{ tournament.tournament_id }}" class="bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold py-3 px-6 rounded-lg">
+            View Tournament
+        </a>
+        <a href="/tournaments" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg">
+            All Tournaments
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>lucide.createIcons();</script>
+{% endblock %}

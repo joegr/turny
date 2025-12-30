@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block title %}Create Tournament{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+    <!-- Back Link -->
+    <a href="/tournaments" class="text-gray-400 hover:text-white flex items-center space-x-1">
+        <i data-lucide="arrow-left" class="w-4 h-4"></i>
+        <span>Back to Tournaments</span>
+    </a>
+
+    <!-- Form -->
+    <div class="bg-gray-800 rounded-lg border border-gray-700 p-6">
+        <h1 class="text-2xl font-bold mb-6">Create New Tournament</h1>
+        
+        <form id="tournament-form" class="space-y-6">
+            <div>
+                <label class="block text-sm text-gray-400 mb-2">Tournament Name *</label>
+                <input type="text" name="name" required 
+                    class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 focus:outline-none focus:border-yellow-500"
+                    placeholder="e.g., Summer Championship 2025">
+            </div>
+
+            <div>
+                <label class="block text-sm text-gray-400 mb-2">Tournament Type</label>
+                <div class="grid grid-cols-2 gap-4">
+                    <label class="relative">
+                        <input type="radio" name="tournament_type" value="single_elimination" checked class="sr-only peer">
+                        <div class="bg-gray-700 border-2 border-gray-600 rounded-lg p-4 cursor-pointer peer-checked:border-yellow-500 peer-checked:bg-gray-600">
+                            <div class="flex items-center space-x-3">
+                                <i data-lucide="git-branch" class="w-6 h-6 text-yellow-500"></i>
+                                <div>
+                                    <p class="font-semibold">Single Elimination</p>
+                                    <p class="text-sm text-gray-400">Lose once, you're out</p>
+                                </div>
+                            </div>
+                        </div>
+                    </label>
+                    <label class="relative">
+                        <input type="radio" name="tournament_type" value="round_robin" class="sr-only peer">
+                        <div class="bg-gray-700 border-2 border-gray-600 rounded-lg p-4 cursor-pointer peer-checked:border-yellow-500 peer-checked:bg-gray-600">
+                            <div class="flex items-center space-x-3">
+                                <i data-lucide="refresh-cw" class="w-6 h-6 text-blue-500"></i>
+                                <div>
+                                    <p class="font-semibold">Round Robin</p>
+                                    <p class="text-sm text-gray-400">Everyone plays everyone</p>
+                                </div>
+                            </div>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm text-gray-400 mb-2">Minimum Teams</label>
+                    <input type="number" name="min_teams" value="4" min="2" max="64"
+                        class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 focus:outline-none focus:border-yellow-500">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-2">Maximum Teams</label>
+                    <input type="number" name="max_teams" value="16" min="2" max="64"
+                        class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 focus:outline-none focus:border-yellow-500">
+                </div>
+            </div>
+
+            <div class="pt-4 border-t border-gray-700">
+                <button type="submit" class="w-full bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold py-3 rounded-lg flex items-center justify-center space-x-2">
+                    <i data-lucide="plus" class="w-5 h-5"></i>
+                    <span>Create Tournament</span>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Info Box -->
+    <div class="bg-blue-900 bg-opacity-30 border border-blue-800 rounded-lg p-4">
+        <div class="flex items-start space-x-3">
+            <i data-lucide="info" class="w-5 h-5 text-blue-400 mt-0.5"></i>
+            <div class="text-sm text-blue-200">
+                <p class="font-semibold mb-1">What happens next?</p>
+                <p>Your tournament will be created in <strong>Draft</strong> mode. You can configure it further, then <strong>Publish</strong> it to open registration. Once enough teams join, you can <strong>Start</strong> the tournament.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.getElementById('tournament-form').onsubmit = async (e) => {
+        e.preventDefault();
+        const form = e.target;
+        
+        const data = {
+            name: form.name.value,
+            tournament_type: form.tournament_type.value,
+            min_teams: parseInt(form.min_teams.value),
+            max_teams: parseInt(form.max_teams.value)
+        };
+        
+        try {
+            const resp = await fetch('/api/v1/tournaments', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await resp.json();
+            
+            if (resp.ok) {
+                showToast('Tournament created!', 'success');
+                location.href = `/tournaments/${result.tournament.tournament_id}`;
+            } else {
+                showToast(result.error || 'Failed to create tournament', 'error');
+            }
+        } catch (err) {
+            showToast('Failed to create tournament', 'error');
+        }
+    };
+    
+    lucide.createIcons();
+</script>
+{% endblock %}

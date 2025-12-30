@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block title %}Tournament Platform - Home{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <!-- Hero Section -->
+    <div class="text-center py-12">
+        <h1 class="text-4xl font-bold mb-4">Tournament Platform</h1>
+        <p class="text-xl text-gray-400 mb-8">Create, manage, and compete in tournaments with real-time updates</p>
+        <div class="flex justify-center space-x-4">
+            <a href="/tournaments/new" class="bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold py-3 px-6 rounded-lg flex items-center space-x-2">
+                <i data-lucide="plus" class="w-5 h-5"></i>
+                <span>Create Tournament</span>
+            </a>
+            <a href="/tournaments" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg flex items-center space-x-2">
+                <i data-lucide="list" class="w-5 h-5"></i>
+                <span>Browse Tournaments</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-gray-400 text-sm">Active Tournaments</p>
+                    <p class="text-3xl font-bold" id="active-count">-</p>
+                </div>
+                <i data-lucide="activity" class="w-12 h-12 text-green-500"></i>
+            </div>
+        </div>
+        <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-gray-400 text-sm">Open Registration</p>
+                    <p class="text-3xl font-bold" id="registration-count">-</p>
+                </div>
+                <i data-lucide="user-plus" class="w-12 h-12 text-blue-500"></i>
+            </div>
+        </div>
+        <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-gray-400 text-sm">Completed</p>
+                    <p class="text-3xl font-bold" id="completed-count">-</p>
+                </div>
+                <i data-lucide="trophy" class="w-12 h-12 text-yellow-500"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="bg-gray-800 rounded-lg border border-gray-700">
+        <div class="px-6 py-4 border-b border-gray-700">
+            <h2 class="text-xl font-semibold">Live Activity</h2>
+        </div>
+        <div class="p-6">
+            <div id="activity-feed" class="space-y-3">
+                <p class="text-gray-500 text-center py-8">Waiting for events...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Open Tournaments -->
+    <div class="bg-gray-800 rounded-lg border border-gray-700">
+        <div class="px-6 py-4 border-b border-gray-700 flex justify-between items-center">
+            <h2 class="text-xl font-semibold">Open for Registration</h2>
+            <a href="/tournaments?status=registration" class="text-yellow-500 hover:text-yellow-400 text-sm">View All →</a>
+        </div>
+        <div class="p-6">
+            <div id="open-tournaments" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <p class="text-gray-500 text-center py-8 col-span-full">Loading tournaments...</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    async function loadStats() {
+        try {
+            const [active, registration, completed] = await Promise.all([
+                fetch('/api/v1/tournaments?status=active').then(r => r.json()),
+                fetch('/api/v1/tournaments?status=registration').then(r => r.json()),
+                fetch('/api/v1/tournaments?status=completed').then(r => r.json())
+            ]);
+            
+            document.getElementById('active-count').textContent = active.count;
+            document.getElementById('registration-count').textContent = registration.count;
+            document.getElementById('completed-count').textContent = completed.count;
+            
+            renderOpenTournaments(registration.tournaments);
+        } catch (err) {
+            console.error('Failed to load stats:', err);
+        }
+    }
+
+    function renderOpenTournaments(tournaments) {
+        const container = document.getElementById('open-tournaments');
+        
+        if (!tournaments.length) {
+            container.innerHTML = '<p class="text-gray-500 text-center py-8 col-span-full">No tournaments open for registration</p>';
+            return;
+        }
+        
+        container.innerHTML = tournaments.slice(0, 6).map(t => `
+            <div class="bg-gray-700 rounded-lg p-4 hover:bg-gray-600 transition cursor-pointer" onclick="location.href='/tournaments/${t.tournament_id}'">
+                <h3 class="font-semibold mb-2">${t.name}</h3>
+                <div class="flex items-center justify-between text-sm text-gray-400">
+                    <span>${t.tournament_type.replace('_', ' ')}</span>
+                    <span>${t.team_count}/${t.max_teams} teams</span>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // Activity feed handler
+    const activityFeed = [];
+    window.addEventListener('tournament-event', (e) => {
+        const event = e.detail;
+        const messages = {
+            'tournament.published': `🎯 New tournament published`,
+            'tournament.started': `🚀 Tournament started`,
+            'match.result': `⚔️ Match result recorded`,
+            'tournament.completed': `🏆 Tournament completed`
+        };
+        
+        if (messages[event.type]) {
+            activityFeed.unshift({
+                message: messages[event.type],
+                time: new Date().toLocaleTimeString()
+            });
+            
+            if (activityFeed.length > 10) activityFeed.pop();
+            
+            document.getElementById('activity-feed').innerHTML = activityFeed.map(a => `
+                <div class="flex items-center justify-between p-3 bg-gray-700 rounded-lg">
+                    <span>${a.message}</span>
+                    <span class="text-gray-400 text-sm">${a.time}</span>
+                </div>
+            `).join('');
+        }
+    });
+
+    loadStats();
+    lucide.createIcons();
+</script>
+{% endblock %}

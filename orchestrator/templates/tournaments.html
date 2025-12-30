@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}Tournaments{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex justify-between items-center">
+        <h1 class="text-3xl font-bold">Tournaments</h1>
+        <a href="/tournaments/new" class="bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold py-2 px-4 rounded-lg flex items-center space-x-2">
+            <i data-lucide="plus" class="w-5 h-5"></i>
+            <span>Create Tournament</span>
+        </a>
+    </div>
+
+    <!-- Filters -->
+    <div class="flex space-x-2">
+        <a href="/tournaments" class="px-4 py-2 rounded-lg {% if not current_filter %}bg-yellow-500 text-gray-900{% else %}bg-gray-700 text-gray-300 hover:bg-gray-600{% endif %}">
+            All
+        </a>
+        <a href="/tournaments?status=draft" class="px-4 py-2 rounded-lg {% if current_filter == 'draft' %}bg-yellow-500 text-gray-900{% else %}bg-gray-700 text-gray-300 hover:bg-gray-600{% endif %}">
+            Draft
+        </a>
+        <a href="/tournaments?status=registration" class="px-4 py-2 rounded-lg {% if current_filter == 'registration' %}bg-yellow-500 text-gray-900{% else %}bg-gray-700 text-gray-300 hover:bg-gray-600{% endif %}">
+            Registration
+        </a>
+        <a href="/tournaments?status=active" class="px-4 py-2 rounded-lg {% if current_filter == 'active' %}bg-yellow-500 text-gray-900{% else %}bg-gray-700 text-gray-300 hover:bg-gray-600{% endif %}">
+            Active
+        </a>
+        <a href="/tournaments?status=completed" class="px-4 py-2 rounded-lg {% if current_filter == 'completed' %}bg-yellow-500 text-gray-900{% else %}bg-gray-700 text-gray-300 hover:bg-gray-600{% endif %}">
+            Completed
+        </a>
+    </div>
+
+    <!-- Tournament List -->
+    <div class="bg-gray-800 rounded-lg border border-gray-700">
+        {% if tournaments %}
+        <div class="divide-y divide-gray-700">
+            {% for t in tournaments %}
+            <div class="p-4 hover:bg-gray-750 transition">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-4">
+                        <div class="w-12 h-12 rounded-lg flex items-center justify-center
+                            {% if t.status == 'draft' %}bg-gray-700{% endif %}
+                            {% if t.status == 'registration' %}bg-blue-900{% endif %}
+                            {% if t.status == 'active' %}bg-green-900{% endif %}
+                            {% if t.status == 'completed' %}bg-yellow-900{% endif %}
+                            {% if t.status == 'archived' %}bg-gray-900{% endif %}
+                        ">
+                            {% if t.status == 'draft' %}
+                            <i data-lucide="file-edit" class="w-6 h-6 text-gray-400"></i>
+                            {% elif t.status == 'registration' %}
+                            <i data-lucide="user-plus" class="w-6 h-6 text-blue-400"></i>
+                            {% elif t.status == 'active' %}
+                            <i data-lucide="swords" class="w-6 h-6 text-green-400"></i>
+                            {% elif t.status == 'completed' %}
+                            <i data-lucide="trophy" class="w-6 h-6 text-yellow-400"></i>
+                            {% else %}
+                            <i data-lucide="archive" class="w-6 h-6 text-gray-500"></i>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <a href="/tournaments/{{ t.tournament_id }}" class="text-lg font-semibold hover:text-yellow-500">
+                                {{ t.name }}
+                            </a>
+                            <div class="flex items-center space-x-4 text-sm text-gray-400">
+                                <span class="capitalize">{{ t.tournament_type.replace('_', ' ') }}</span>
+                                <span>{{ t.teams|length }}/{{ t.max_teams }} teams</span>
+                                {% if t.current_round > 0 %}
+                                <span>Round {{ t.current_round }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <span class="px-3 py-1 rounded-full text-xs font-semibold
+                            {% if t.status == 'draft' %}bg-gray-700 text-gray-300{% endif %}
+                            {% if t.status == 'registration' %}bg-blue-900 text-blue-300{% endif %}
+                            {% if t.status == 'active' %}bg-green-900 text-green-300{% endif %}
+                            {% if t.status == 'completed' %}bg-yellow-900 text-yellow-300{% endif %}
+                            {% if t.status == 'archived' %}bg-gray-900 text-gray-500{% endif %}
+                        ">
+                            {{ t.status.upper() }}
+                        </span>
+                        {% if t.status == 'active' and t.service_url %}
+                        <a href="/tournaments/{{ t.tournament_id }}/live" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-lg text-sm flex items-center space-x-1">
+                            <i data-lucide="play" class="w-4 h-4"></i>
+                            <span>Live</span>
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="p-12 text-center">
+            <i data-lucide="inbox" class="w-16 h-16 mx-auto text-gray-600 mb-4"></i>
+            <p class="text-gray-400 mb-4">No tournaments found</p>
+            <a href="/tournaments/new" class="text-yellow-500 hover:text-yellow-400">Create your first tournament →</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    lucide.createIcons();
+</script>
+{% endblock %}

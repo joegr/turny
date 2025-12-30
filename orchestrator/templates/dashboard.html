@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-bold">Dashboard</h1>
+            <p class="text-gray-400">User: {{ user_id }}</p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Subscriptions -->
+        <div class="lg:col-span-2 bg-gray-800 rounded-lg border border-gray-700">
+            <div class="px-6 py-4 border-b border-gray-700">
+                <h2 class="text-xl font-semibold">Your Subscriptions</h2>
+            </div>
+            <div class="p-6">
+                {% if subscriptions %}
+                <div class="space-y-4">
+                    {% for t in subscriptions %}
+                    <div class="bg-gray-700 rounded-lg p-4 flex items-center justify-between">
+                        <div class="flex items-center space-x-4">
+                            <div class="w-10 h-10 rounded-lg flex items-center justify-center
+                                {% if t.status == 'registration' %}bg-blue-900{% endif %}
+                                {% if t.status == 'active' %}bg-green-900{% endif %}
+                                {% if t.status == 'completed' %}bg-yellow-900{% endif %}
+                            ">
+                                {% if t.status == 'registration' %}
+                                <i data-lucide="user-plus" class="w-5 h-5 text-blue-400"></i>
+                                {% elif t.status == 'active' %}
+                                <i data-lucide="swords" class="w-5 h-5 text-green-400"></i>
+                                {% else %}
+                                <i data-lucide="trophy" class="w-5 h-5 text-yellow-400"></i>
+                                {% endif %}
+                            </div>
+                            <div>
+                                <a href="/tournaments/{{ t.tournament_id }}" class="font-semibold hover:text-yellow-500">{{ t.name }}</a>
+                                <p class="text-sm text-gray-400">{{ t.status.upper() }}</p>
+                            </div>
+                        </div>
+                        <button onclick="unsubscribe('{{ t.tournament_id }}')" class="text-gray-400 hover:text-red-400">
+                            <i data-lucide="x" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-8">
+                    <i data-lucide="bell-off" class="w-16 h-16 mx-auto text-gray-600 mb-4"></i>
+                    <p class="text-gray-400 mb-4">No subscriptions yet</p>
+                    <a href="/tournaments" class="text-yellow-500 hover:text-yellow-400">Browse tournaments →</a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Notifications Panel -->
+        <div class="bg-gray-800 rounded-lg border border-gray-700">
+            <div class="px-6 py-4 border-b border-gray-700">
+                <h2 class="text-xl font-semibold">Live Notifications</h2>
+            </div>
+            <div class="p-6">
+                <div id="notifications" class="space-y-3">
+                    <p class="text-gray-500 text-center py-4">Listening for events...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const userId = '{{ user_id }}';
+    
+    // Connect to user-specific events
+    connectSSE(`/api/v1/events/user/${userId}`);
+    
+    const notifications = [];
+    window.addEventListener('tournament-event', (e) => {
+        const event = e.detail;
+        
+        notifications.unshift({
+            type: event.type,
+            message: formatEventMessage(event),
+            time: new Date().toLocaleTimeString()
+        });
+        
+        if (notifications.length > 20) notifications.pop();
+        
+        renderNotifications();
+    });
+    
+    function formatEventMessage(event) {
+        const messages = {
+            'state.changed': `Tournament state changed`,
+            'match.result': `Match completed`,
+            'round.started': `Round ${event.data?.round || '?'} started`,
+            'tournament.completed': `Tournament finished!`
+        };
+        return messages[event.type] || event.type;
+    }
+    
+    function renderNotifications() {
+        const container = document.getElementById('notifications');
+        container.innerHTML = notifications.map(n => `
+            <div class="bg-gray-700 rounded-lg p-3">
+                <p class="text-sm">${n.message}</p>
+                <p class="text-xs text-gray-400 mt-1">${n.time}</p>
+            </div>
+        `).join('');
+    }
+    
+    async function unsubscribe(tournamentId) {
+        try {
+            await fetch('/api/v1/subscriptions', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: userId, tournament_id: tournamentId })
+            });
+            location.reload();
+        } catch (err) {
+            showToast('Failed to unsubscribe', 'error');
+        }
+    }
+    
+    lucide.createIcons();
+</script>
+{% endblock %}

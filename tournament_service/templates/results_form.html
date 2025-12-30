@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ tournament_id }} - Live Tournament</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen">
+    <header class="bg-gray-800 border-b border-gray-700 py-4">
+        <div class="max-w-6xl mx-auto px-4 flex items-center justify-between">
+            <div class="flex items-center space-x-4">
+                <i data-lucide="trophy" class="w-8 h-8 text-yellow-500"></i>
+                <div>
+                    <h1 class="text-xl font-bold">Tournament: {{ tournament_id }}</h1>
+                    <div class="flex items-center space-x-3 text-sm text-gray-400">
+                        <span class="capitalize">{{ tournament_type.replace('_', ' ') }}</span>
+                        <span class="px-2 py-0.5 rounded-full text-xs font-semibold
+                            {% if state == 'registration' %}bg-blue-900 text-blue-300{% endif %}
+                            {% if state == 'active' %}bg-green-900 text-green-300{% endif %}
+                            {% if state == 'completed' %}bg-yellow-900 text-yellow-300{% endif %}
+                        ">{{ state.upper() }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="flex items-center space-x-2 text-sm">
+                <span class="w-2 h-2 rounded-full bg-gray-500" id="status-dot"></span>
+                <span id="status-text">Connecting...</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto py-6 px-4">
+        {% if form_access == 'signup' %}
+        <div class="space-y-6">
+            <div class="bg-gray-800 rounded-lg border border-gray-700 p-6">
+                <h2 class="text-xl font-semibold mb-4">Team Registration</h2>
+                <form id="register-form" class="space-y-4 max-w-md">
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">Team Name</label>
+                        <input type="text" name="name" required class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:border-yellow-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">Captain Name</label>
+                        <input type="text" name="captain" required class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:border-yellow-500">
+                    </div>
+                    <button type="submit" class="bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold py-2 px-4 rounded-lg">Register Team</button>
+                </form>
+            </div>
+            <div class="bg-gray-800 rounded-lg border border-gray-700 p-6">
+                <h2 class="text-xl font-semibold mb-4">Registered Teams</h2>
+                <div id="teams-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <p class="text-gray-500">Loading...</p>
+                </div>
+            </div>
+        </div>
+
+        {% elif form_access == 'results' %}
+        <div class="space-y-6">
+            <div class="bg-gray-800 rounded-lg border border-gray-700 p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="text-2xl font-bold">Round <span id="current-round">-</span></h2>
+                        <p class="text-gray-400" id="matches-status">Loading matches...</p>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-3xl font-bold text-yellow-500" id="completed-count">0</span>
+                        <span class="text-gray-400">/</span>
+                        <span class="text-xl" id="total-count">0</span>
+                        <p class="text-sm text-gray-400">matches completed</p>
+                    </div>
+                </div>
+            </div>
+            <div id="matches-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <p class="text-gray-500 col-span-full text-center py-8">Loading matches...</p>
+            </div>
+            <div class="bg-gray-800 rounded-lg border border-gray-700">
+                <div class="px-6 py-4 border-b border-gray-700">
+                    <h2 class="text-xl font-semibold">Standings</h2>
+                </div>
+                <div class="p-6">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="text-left text-gray-400 text-sm">
+                                <th class="pb-3">Rank</th>
+                                <th class="pb-3">Team</th>
+                                <th class="pb-3 text-center">W</th>
+                                <th class="pb-3 text-center">L</th>
+                                <th class="pb-3 text-right">Win %</th>
+                            </tr>
+                        </thead>
+                        <tbody id="standings-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        {% elif form_access == 'readonly' %}
+        <div class="space-y-6">
+            <div class="bg-gray-800 rounded-lg border border-gray-700 p-6 text-center">
+                <i data-lucide="trophy" class="w-24 h-24 mx-auto text-yellow-500 mb-4"></i>
+                <h2 class="text-3xl font-bold mb-2">Tournament Completed</h2>
+                <p class="text-gray-400 mb-6">Final results are now available</p>
+                <div class="bg-yellow-900 bg-opacity-30 rounded-lg p-6 max-w-md mx-auto">
+                    <p class="text-yellow-500 text-sm mb-2">CHAMPION</p>
+                    <p class="text-2xl font-bold" id="winner-name">Loading...</p>
+                </div>
+            </div>
+            <div class="bg-gray-800 rounded-lg border border-gray-700">
+                <div class="px-6 py-4 border-b border-gray-700">
+                    <h2 class="text-xl font-semibold">Final Standings</h2>
+                </div>
+                <div class="p-6">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="text-left text-gray-400 text-sm">
+                                <th class="pb-3">Rank</th>
+                                <th class="pb-3">Team</th>
+                                <th class="pb-3 text-center">W</th>
+                                <th class="pb-3 text-center">L</th>
+                                <th class="pb-3 text-right">Win %</th>
+                            </tr>
+                        </thead>
+                        <tbody id="standings-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </main>
+
+    <div id="toast-container" class="fixed bottom-4 right-4 space-y-2 z-50"></div>
+
+    <script>
+        lucide.createIcons();
+        const formAccess = '{{ form_access }}';
+        let teams = {};
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const colors = { 'info': 'bg-blue-600', 'success': 'bg-green-600', 'error': 'bg-red-600' };
+            toast.className = `${colors[type]} text-white px-4 py-3 rounded-lg shadow-lg`;
+            toast.textContent = message;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 5000);
+        }
+
+        const eventSource = new EventSource('/api/events');
+        eventSource.onopen = () => {
+            document.getElementById('status-dot').className = 'w-2 h-2 rounded-full bg-green-500';
+            document.getElementById('status-text').textContent = 'Connected';
+        };
+        eventSource.onerror = () => {
+            document.getElementById('status-dot').className = 'w-2 h-2 rounded-full bg-red-500';
+            document.getElementById('status-text').textContent = 'Disconnected';
+        };
+        eventSource.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            if (data.type === 'match.result') {
+                showToast(`Match completed!`, 'success');
+                loadMatches(); loadStandings();
+            } else if (data.type === 'round.started') {
+                showToast(`Round ${data.data?.round} started!`, 'info');
+                loadMatches();
+            } else if (data.type === 'tournament.completed') {
+                showToast('Tournament completed!', 'success');
+                location.reload();
+            }
+        };
+
+        async function loadTeams() {
+            const resp = await fetch('/api/teams');
+            teams = await resp.json();
+            if (formAccess === 'signup') renderTeamsList();
+        }
+
+        function renderTeamsList() {
+            const container = document.getElementById('teams-list');
+            const arr = Object.entries(teams);
+            if (!arr.length) { container.innerHTML = '<p class="text-gray-500 col-span-full">No teams registered yet</p>'; return; }
+            container.innerHTML = arr.map(([id, t]) => `
+                <div class="bg-gray-700 rounded-lg p-4">
+                    <h3 class="font-semibold">${t.name}</h3>
+                    <p class="text-sm text-gray-400">Captain: ${t.captain}</p>
+                </div>
+            `).join('');
+        }
+
+        async function loadMatches() {
+            if (formAccess !== 'results') return;
+            const [matchesResp, stateResp] = await Promise.all([fetch('/api/matches'), fetch('/api/state')]);
+            const matches = await matchesResp.json();
+            const state = await stateResp.json();
+            document.getElementById('current-round').textContent = state.current_round || 1;
+            const completed = matches.filter(m => m.status === 'completed').length;
+            document.getElementById('completed-count').textContent = completed;
+            document.getElementById('total-count').textContent = matches.length;
+            document.getElementById('matches-status').textContent = completed === matches.length ? 'All matches completed!' : `${matches.length - completed} matches pending`;
+            renderMatches(matches);
+        }
+
+        function renderMatches(matches) {
+            const container = document.getElementById('matches-grid');
+            if (!matches.length) { container.innerHTML = '<p class="text-gray-500 col-span-full text-center py-8">No matches yet</p>'; return; }
+            container.innerHTML = matches.map(m => {
+                const t1 = teams[m.team1] || { name: m.team1 };
+                const t2 = teams[m.team2] || { name: m.team2 };
+                const pending = m.status === 'pending';
+                return `
+                    <div class="bg-gray-800 rounded-lg border ${pending ? 'border-yellow-500' : 'border-gray-700'} p-4">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-sm text-gray-400">${m.id}</span>
+                            <span class="px-2 py-0.5 rounded text-xs ${m.status === 'completed' ? 'bg-green-900 text-green-300' : 'bg-yellow-900 text-yellow-300'}">${m.status.toUpperCase()}</span>
+                        </div>
+                        <div class="space-y-2">
+                            <button onclick="recordResult('${m.id}', '${m.team1}')" ${!pending ? 'disabled' : ''} class="w-full p-3 rounded-lg flex items-center justify-between ${m.winner === m.team1 ? 'bg-green-900 border-2 border-green-500' : pending ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-700 opacity-50'}">
+                                <span class="font-semibold">${t1.name}</span>
+                                ${m.winner === m.team1 ? '<i data-lucide="trophy" class="w-5 h-5 text-yellow-500"></i>' : ''}
+                            </button>
+                            <div class="text-center text-gray-500 text-sm">VS</div>
+                            <button onclick="recordResult('${m.id}', '${m.team2}')" ${!pending ? 'disabled' : ''} class="w-full p-3 rounded-lg flex items-center justify-between ${m.winner === m.team2 ? 'bg-green-900 border-2 border-green-500' : pending ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-700 opacity-50'}">
+                                <span class="font-semibold">${t2.name}</span>
+                                ${m.winner === m.team2 ? '<i data-lucide="trophy" class="w-5 h-5 text-yellow-500"></i>' : ''}
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            lucide.createIcons();
+        }
+
+        async function recordResult(matchId, winner) {
+            const resp = await fetch(`/api/matches/${matchId}/result`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ winner })
+            });
+            if (resp.ok) { showToast('Result recorded!', 'success'); loadMatches(); loadStandings(); }
+            else { const err = await resp.json(); showToast(err.error || 'Failed', 'error'); }
+        }
+
+        async function loadStandings() {
+            const resp = await fetch('/api/standings');
+            const standings = await resp.json();
+            const tbody = document.getElementById('standings-body');
+            if (!tbody) return;
+            tbody.innerHTML = standings.map((s, i) => `
+                <tr class="border-t border-gray-700">
+                    <td class="py-3">${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : s.rank}</td>
+                    <td class="py-3 font-semibold">${s.name}</td>
+                    <td class="py-3 text-center text-green-400">${s.wins}</td>
+                    <td class="py-3 text-center text-red-400">${s.losses}</td>
+                    <td class="py-3 text-right">${s.win_rate}%</td>
+                </tr>
+            `).join('');
+            const winnerEl = document.getElementById('winner-name');
+            if (winnerEl && standings.length) winnerEl.textContent = standings[0].name;
+        }
+
+        if (formAccess === 'signup') {
+            document.getElementById('register-form').onsubmit = async (e) => {
+                e.preventDefault();
+                const form = e.target;
+                const resp = await fetch('/api/teams', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: form.name.value, captain: form.captain.value })
+                });
+                if (resp.ok) { showToast('Team registered!', 'success'); form.reset(); loadTeams(); }
+                else { const err = await resp.json(); showToast(err.error || 'Failed', 'error'); }
+            };
+        }
+
+        loadTeams();
+        if (formAccess === 'results' || formAccess === 'readonly') { loadMatches(); loadStandings(); }
+    </script>
+</body>
+</html>

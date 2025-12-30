@@ -84,12 +84,12 @@ class TournamentManager:
                 tournament.current_round = state.get('round', 0)
                 tournament.tournament_type = state.get('type', 'single_elimination')
                 tournament.winner_team_id = state.get('winner')
-                tournament.updated_at = datetime.utcnow()
+                tournament.updated_at = datetime.now()
                 
                 if state.get('status') == 'active' and not tournament.start_time:
-                    tournament.start_time = datetime.utcnow()
+                    tournament.start_time = datetime.now()
                 elif state.get('status') == 'completed' and not tournament.end_time:
-                    tournament.end_time = datetime.utcnow()
+                    tournament.end_time = datetime.now()
                 
                 self.db.commit()
         except Exception as e:
@@ -107,7 +107,7 @@ class TournamentManager:
                 team.captain = team_data['captain']
                 team.wins = team_data.get('wins', 0)
                 team.losses = team_data.get('losses', 0)
-                team.updated_at = datetime.utcnow()
+                team.updated_at = datetime.now()
             else:
                 team = Team(
                     team_id=team_id,
@@ -133,7 +133,7 @@ class TournamentManager:
             if match:
                 match.status = match_data.get('status', 'pending')
                 match.winner_id = match_data.get('winner')
-                match.updated_at = datetime.utcnow()
+                match.updated_at = datetime.now()
             else:
                 match = Match(
                     match_id=match_data['id'],
@@ -461,7 +461,23 @@ tournament_manager = TournamentManager()
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('index.html', active_page='home')
+
+@app.route('/teams')
+def teams_page():
+    return render_template('teams.html', active_page='teams')
+
+@app.route('/teams/<team_id>')
+def team_detail_page(team_id):
+    return render_template('team_detail.html', active_page='teams', team_id=team_id)
+
+@app.route('/tournaments')
+def tournaments_page():
+    return render_template('tournaments.html', active_page='tournaments')
+
+@app.route('/tournaments/current')
+def tournament_detail_page():
+    return render_template('tournament_detail.html', active_page='tournaments')
 
 @app.route('/api/tournament/state')
 def get_tournament_state():

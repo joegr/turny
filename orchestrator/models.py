@@ -1,0 +1,105 @@
+from datetime import datetime
+from flask_sqlalchemy import SQLAlchemy
+
+db = SQLAlchemy()
+
+
+class Tournament(db.Model):
+    __tablename__ = 'tournaments'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    tournament_id = db.Column(db.String(50), unique=True, nullable=False, index=True)
+    name = db.Column(db.String(200), nullable=False)
+    tournament_type = db.Column(db.String(50), nullable=False, default='single_elimination')
+    status = db.Column(db.String(20), nullable=False, default='draft')
+    current_round = db.Column(db.Integer, default=0)
+    max_teams = db.Column(db.Integer, default=16)
+    min_teams = db.Column(db.Integer, default=4)
+    
+    # Service instance info
+    service_port = db.Column(db.Integer, nullable=True)
+    service_host = db.Column(db.String(100), nullable=True)
+    container_id = db.Column(db.String(100), nullable=True)
+    
+    # Results
+    winner_team_id = db.Column(db.String(50), nullable=True)
+    
+    # Timestamps
+    scheduled_start = db.Column(db.DateTime, nullable=True)
+    start_time = db.Column(db.DateTime, nullable=True)
+    end_time = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    teams = db.relationship('Team', back_populates='tournament', cascade='all, delete-orphan')
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'tournament_id': self.tournament_id,
+            'name': self.name,
+            'tournament_type': self.tournament_type,
+            'status': self.status,
+            'current_round': self.current_round,
+            'max_teams': self.max_teams,
+            'min_teams': self.min_teams,
+            'team_count': len(self.teams),
+            'winner_team_id': self.winner_team_id,
+            'service_url': self.service_url,
+            'scheduled_start': self.scheduled_start.isoformat() if self.scheduled_start else None,
+            'start_time': self.start_time.isoformat() if self.start_time else None,
+            'end_time': self.end_time.isoformat() if self.end_time else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+    
+    @property
+    def service_url(self):
+        if self.service_host and self.service_port:
+            return f"http://{self.service_host}:{self.service_port}"
+        return None
+
+
+class Team(db.Model):
+    __tablename__ = 'teams'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    team_id = db.Column(db.String(50), nullable=False, index=True)
+    tournament_id = db.Column(db.Integer, db.ForeignKey('tournaments.id'), nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    captain = db.Column(db.String(100), nullable=False)
+    wins = db.Column(db.Integer, default=0)
+    losses = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    tournament = db.relationship('Tournament', back_populates='teams')
+    
+    __table_args__ = (
+        db.UniqueConstraint('team_id', 'tournament_id', name='unique_team_per_tournament'),
+    )
+    
+    def to_dict(self):
+        return {
+            'team_id': self.team_id,
+            'name': self.name,
+            'captain': self.captain,
+            'wins': self.wins,
+            'losses': self.losses,
+        }
+
+
+class Subscription(db.Model):
+    __tablename__ = 'subscriptions'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.String(50), nullable=False, index=True)
+    tournament_id = db.Column(db.String(50), nullable=False, index=True)
+    notify_on_start = db.Column(db.Boolean, default=True)
+    notify_on_match = db.Column(db.Boolean, default=True)
+    notify_on_complete = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'tournament_id', name='unique_subscription'),
+    )

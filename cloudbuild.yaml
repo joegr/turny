@@ -1,0 +1,53 @@
+steps:
+  # Build orchestrator image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', '${_REGION}-docker.pkg.dev/$PROJECT_ID/tournament-repo/tournament-orchestrator:$COMMIT_SHA', '-f', 'Dockerfile.cloudrun.orchestrator', '.']
+  
+  # Build tournament service image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', '${_REGION}-docker.pkg.dev/$PROJECT_ID/tournament-repo/tournament-service:$COMMIT_SHA', '-f', 'Dockerfile.cloudrun.tournament', '.']
+  
+  # Push orchestrator image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', '${_REGION}-docker.pkg.dev/$PROJECT_ID/tournament-repo/tournament-orchestrator:$COMMIT_SHA']
+  
+  # Push tournament service image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', '${_REGION}-docker.pkg.dev/$PROJECT_ID/tournament-repo/tournament-service:$COMMIT_SHA']
+  
+  # Tag as latest
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['tag', '${_REGION}-docker.pkg.dev/$PROJECT_ID/tournament-repo/tournament-orchestrator:$COMMIT_SHA', '${_REGION}-docker.pkg.dev/$PROJECT_ID/tournament-repo/tournament-orchestrator:latest']
+  
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['tag', '${_REGION}-docker.pkg.dev/$PROJECT_ID/tournament-repo/tournament-service:$COMMIT_SHA', '${_REGION}-docker.pkg.dev/$PROJECT_ID/tournament-repo/tournament-service:latest']
+  
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', '${_REGION}-docker.pkg.dev/$PROJECT_ID/tournament-repo/tournament-orchestrator:latest']
+  
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', '${_REGION}-docker.pkg.dev/$PROJECT_ID/tournament-repo/tournament-service:latest']
+
+  # Deploy orchestrator to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'tournament-orchestrator'
+      - '--image=${_REGION}-docker.pkg.dev/$PROJECT_ID/tournament-repo/tournament-orchestrator:$COMMIT_SHA'
+      - '--region=${_REGION}'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--set-env-vars=REDIS_URL=${_REDIS_URL},DATABASE_URL=${_DATABASE_URL},GCP_PROJECT_ID=$PROJECT_ID,GCP_REGION=${_REGION},USE_CLOUD_RUN=true,TOURNAMENT_SERVICE_IMAGE=${_REGION}-docker.pkg.dev/$PROJECT_ID/tournament-repo/tournament-service:latest'
+
+substitutions:
+  _REGION: us-central1
+  _REDIS_URL: ''
+  _DATABASE_URL: ''
+
+images:
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/tournament-repo/tournament-orchestrator:$COMMIT_SHA'
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/tournament-orchestrator:latest'
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/tournament-repo/tournament-service:$COMMIT_SHA'
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/tournament-service:latest'
