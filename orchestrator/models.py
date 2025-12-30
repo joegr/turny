@@ -16,10 +16,11 @@ class Tournament(db.Model):
     max_teams = db.Column(db.Integer, default=16)
     min_teams = db.Column(db.Integer, default=4)
     
-    # Service instance info
+    # Service instance info (Monolith: deprecated but kept for compatibility or future scaling)
     service_port = db.Column(db.Integer, nullable=True)
     service_host = db.Column(db.String(100), nullable=True)
     container_id = db.Column(db.String(100), nullable=True)
+    service_url = db.Column(db.String(200), nullable=True) # Used for internal routing now
     
     # Results
     winner_team_id = db.Column(db.String(50), nullable=True)
@@ -33,6 +34,7 @@ class Tournament(db.Model):
     
     # Relationships
     teams = db.relationship('Team', back_populates='tournament', cascade='all, delete-orphan')
+    matches = db.relationship('Match', back_populates='tournament', cascade='all, delete-orphan')
     
     def to_dict(self):
         return {
@@ -46,7 +48,7 @@ class Tournament(db.Model):
             'min_teams': self.min_teams,
             'team_count': len(self.teams),
             'winner_team_id': self.winner_team_id,
-            'service_url': self.service_url,
+            'service_url': self.service_url_prop,
             'scheduled_start': self.scheduled_start.isoformat() if self.scheduled_start else None,
             'start_time': self.start_time.isoformat() if self.start_time else None,
             'end_time': self.end_time.isoformat() if self.end_time else None,
@@ -54,7 +56,10 @@ class Tournament(db.Model):
         }
     
     @property
-    def service_url(self):
+    def service_url_prop(self):
+        # Return internal URL if set, otherwise construct from host/port (legacy)
+        if self.service_url:
+            return self.service_url
         if self.service_host and self.service_port:
             return f"http://{self.service_host}:{self.service_port}"
         return None
@@ -87,6 +92,41 @@ class Team(db.Model):
             'wins': self.wins,
             'losses': self.losses,
         }
+
+
+class Match(db.Model):
+    __tablename__ = 'matches'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    match_id = db.Column(db.String(50), nullable=False, index=True)
+    tournament_id = db.Column(db.Integer, db.ForeignKey('tournaments.id'), nullable=False)
+    round_num = db.Column(db.Integer, nullable=False)
+    
+    team1_id = db.Column(db.String(50), nullable=True) # using string ID to match Team.team_id logic or we can join
+    team2_id = db.Column(db.String(50), nullable=True)
+    winner_id = db.Column(db.String(50), nullable=True)
+    
+    status = db.Column(db.String(20), default='pending') # pending, completed, abandoned
+    
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    tournament = db.relationship('Tournament', back_populates='matches')
+    
+    __table_args__ = (
+        db.UniqueConstraint('match_id', 'tournament_id', name='unique_match_per_tournament'),
+    )
+
+    def to_dict(self):
+        return {
+            'id': self.match_id,
+            'team1': self.team1_id,
+            'team2': self.team2_id,
+            'winner': self.winner_id,
+            'status': self.status,
+            'round': self.round_num
+        }
+
 
 
 class Subscription(db.Model):

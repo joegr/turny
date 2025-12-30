@@ -1,6 +1,5 @@
 import os
 from flask import Flask, render_template, request, jsonify, Response, redirect, url_for
-import redis
 
 from .config import config
 from .models import db, Tournament, Team
@@ -21,17 +20,9 @@ def create_app(config_name: str = None) -> Flask:
     # Initialize extensions
     db.init_app(app)
     
-    # Initialize Redis
-    redis_client = redis.from_url(
-        app.config['REDIS_URL'],
-        decode_responses=True,
-        socket_connect_timeout=5,
-        socket_timeout=5
-    )
-    
     # Initialize services
-    registry = TournamentRegistry(redis_client)
-    subscriptions = SubscriptionManager(redis_client)
+    registry = TournamentRegistry()
+    subscriptions = SubscriptionManager()
     
     # Create tables
     with app.app_context():
@@ -40,11 +31,14 @@ def create_app(config_name: str = None) -> Flask:
     # Store services on app for access in routes
     app.registry = registry
     app.subscriptions = subscriptions
-    app.redis = redis_client
     
     # Register routes
     register_routes(app)
     register_api_routes(app)
+    
+    # Register Play Blueprint (Monolith Mode)
+    from .routes import play
+    app.register_blueprint(play.bp)
     
     return app
 
@@ -87,18 +81,13 @@ def register_routes(app: Flask):
     
     @app.route('/tournaments/<tournament_id>/live')
     def tournament_live(tournament_id: str):
-        """Redirect to the tournament service for live interaction."""
+        """Redirect to the internal tournament play interface."""
         tournament = app.registry.get_tournament(tournament_id)
         if not tournament:
             return render_template('404.html'), 404
         
-        if not tournament.service_url:
-            return render_template('tournament_not_started.html',
-                                 tournament=tournament), 400
-        
-        # In production, this would proxy or redirect
-        # For development, redirect to the service directly
-        return redirect(tournament.service_url)
+        # In Monolith mode, we just redirect to the internal route
+        return redirect(url_for('play.play_index', tournament_id=tournament_id))
     
     @app.route('/dashboard')
     def user_dashboard():

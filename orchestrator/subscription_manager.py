@@ -1,17 +1,15 @@
 from typing import List, Set
-import redis
-
 from .models import db, Subscription
 
 
 class SubscriptionManager:
     """
     Manages user subscriptions to tournaments.
-    Combines Redis for real-time pub/sub with PostgreSQL for persistence.
+    Uses PostgreSQL for persistence.
     """
     
-    def __init__(self, redis_client: redis.Redis):
-        self.redis = redis_client
+    def __init__(self):
+        pass
     
     def subscribe(
         self,
@@ -45,11 +43,6 @@ class SubscriptionManager:
             db.session.add(sub)
         
         db.session.commit()
-        
-        # Add to Redis sets for fast lookup
-        self.redis.sadd(f"user:{user_id}:subscriptions", tournament_id)
-        self.redis.sadd(f"tournament:{tournament_id}:subscribers", user_id)
-        
         return True
     
     def unsubscribe(self, user_id: str, tournament_id: str) -> bool:
@@ -63,37 +56,24 @@ class SubscriptionManager:
             db.session.delete(sub)
             db.session.commit()
         
-        # Remove from Redis
-        self.redis.srem(f"user:{user_id}:subscriptions", tournament_id)
-        self.redis.srem(f"tournament:{tournament_id}:subscribers", user_id)
-        
         return True
     
     def get_user_subscriptions(self, user_id: str) -> List[str]:
         """Get all tournament IDs a user is subscribed to."""
-        # Try Redis first (faster)
-        tournament_ids = self.redis.smembers(f"user:{user_id}:subscriptions")
-        if tournament_ids:
-            return list(tournament_ids)
-        
-        # Fall back to database
         subs = Subscription.query.filter_by(user_id=user_id).all()
         return [s.tournament_id for s in subs]
     
     def get_tournament_subscribers(self, tournament_id: str) -> List[str]:
         """Get all user IDs subscribed to a tournament."""
-        # Try Redis first
-        user_ids = self.redis.smembers(f"tournament:{tournament_id}:subscribers")
-        if user_ids:
-            return list(user_ids)
-        
-        # Fall back to database
         subs = Subscription.query.filter_by(tournament_id=tournament_id).all()
         return [s.user_id for s in subs]
     
     def is_subscribed(self, user_id: str, tournament_id: str) -> bool:
         """Check if a user is subscribed to a tournament."""
-        return self.redis.sismember(f"user:{user_id}:subscriptions", tournament_id)
+        return Subscription.query.filter_by(
+            user_id=user_id,
+            tournament_id=tournament_id
+        ).first() is not None
     
     def get_subscribers_for_event(
         self,
@@ -120,11 +100,3 @@ class SubscriptionManager:
         ).all()
         
         return [s.user_id for s in subs]
-    
-    def sync_to_redis(self):
-        """Sync all subscriptions from database to Redis."""
-        subs = Subscription.query.all()
-        
-        for sub in subs:
-            self.redis.sadd(f"user:{sub.user_id}:subscriptions", sub.tournament_id)
-            self.redis.sadd(f"tournament:{sub.tournament_id}:subscribers", sub.user_id)

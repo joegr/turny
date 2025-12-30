@@ -136,6 +136,7 @@
         lucide.createIcons();
         const formAccess = '{{ form_access }}';
         let teams = {};
+        let pollingInterval = null;
 
         function showToast(message, type = 'info') {
             const container = document.getElementById('toast-container');
@@ -147,31 +148,50 @@
             setTimeout(() => toast.remove(), 5000);
         }
 
-        const eventSource = new EventSource('/api/events');
-        eventSource.onopen = () => {
-            document.getElementById('status-dot').className = 'w-2 h-2 rounded-full bg-green-500';
-            document.getElementById('status-text').textContent = 'Connected';
-        };
-        eventSource.onerror = () => {
-            document.getElementById('status-dot').className = 'w-2 h-2 rounded-full bg-red-500';
-            document.getElementById('status-text').textContent = 'Disconnected';
-        };
-        eventSource.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            if (data.type === 'match.result') {
-                showToast(`Match completed!`, 'success');
-                loadMatches(); loadStandings();
-            } else if (data.type === 'round.started') {
-                showToast(`Round ${data.data?.round} started!`, 'info');
-                loadMatches();
-            } else if (data.type === 'tournament.completed') {
-                showToast('Tournament completed!', 'success');
-                location.reload();
+        // Poll for updates every 5 seconds
+        async function pollUpdates() {
+            try {
+                const stateResp = await fetch(`/api/v1/play/${'{{ tournament_id }}'}/state`);
+                if (!stateResp.ok) return;
+                
+                const stateData = await stateResp.json();
+                
+                // Update header status
+                const statusBadge = document.querySelector('.rounded-full.text-xs');
+                if (statusBadge) statusBadge.textContent = stateData.state.toUpperCase();
+                
+                document.getElementById('status-dot').className = 'w-2 h-2 rounded-full bg-green-500';
+                document.getElementById('status-text').textContent = 'Live';
+
+                if (stateData.state === 'completed' && formAccess !== 'readonly') {
+                    location.reload();
+                    return;
+                }
+
+                if (formAccess === 'results' || formAccess === 'readonly') {
+                    await Promise.all([loadMatches(), loadStandings()]);
+                }
+            } catch (e) {
+                console.error('Polling error:', e);
+                document.getElementById('status-dot').className = 'w-2 h-2 rounded-full bg-yellow-500';
+                document.getElementById('status-text').textContent = 'Reconnecting...';
             }
-        };
+        }
+
+        function startPolling() {
+            loadTeams();
+            if (formAccess === 'results' || formAccess === 'readonly') {
+                loadMatches();
+                loadStandings();
+            }
+            
+            // Initial poll
+            pollUpdates();
+            pollingInterval = setInterval(pollUpdates, 5000);
+        }
 
         async function loadTeams() {
-            const resp = await fetch('/api/teams');
+            const resp = await fetch(`/api/v1/play/${'{{ tournament_id }}'}/teams`);
             teams = await resp.json();
             if (formAccess === 'signup') renderTeamsList();
         }
@@ -189,24 +209,40 @@
         }
 
         async function loadMatches() {
-            if (formAccess !== 'results') return;
-            const [matchesResp, stateResp] = await Promise.all([fetch('/api/matches'), fetch('/api/state')]);
+            if (formAccess !== 'results' && formAccess !== 'readonly') return;
+            const matchesResp = await fetch(`/api/v1/play/${'{{ tournament_id }}'}/matches`);
             const matches = await matchesResp.json();
-            const state = await stateResp.json();
-            document.getElementById('current-round').textContent = state.current_round || 1;
+            
+            // We need current round from state or infer it
+            // For MVP let's assume matches contains round info or we fetch state separately which we do in pollUpdates
+            // But here we need to update the UI counts
+            
             const completed = matches.filter(m => m.status === 'completed').length;
-            document.getElementById('completed-count').textContent = completed;
-            document.getElementById('total-count').textContent = matches.length;
-            document.getElementById('matches-status').textContent = completed === matches.length ? 'All matches completed!' : `${matches.length - completed} matches pending`;
+            const completedEl = document.getElementById('completed-count');
+            const totalEl = document.getElementById('total-count');
+            const statusEl = document.getElementById('matches-status');
+            
+            if (completedEl) completedEl.textContent = completed;
+            if (totalEl) totalEl.textContent = matches.length;
+            if (statusEl) statusEl.textContent = completed === matches.length ? 'All matches completed!' : `${matches.length - completed} matches pending`;
+            
+            // Update round number if element exists
+            const roundEl = document.getElementById('current-round');
+            if (roundEl && matches.length > 0) {
+                 const maxRound = Math.max(...matches.map(m => m.round || 1));
+                 roundEl.textContent = maxRound;
+            }
+
             renderMatches(matches);
         }
 
         function renderMatches(matches) {
             const container = document.getElementById('matches-grid');
+            if (!container) return;
             if (!matches.length) { container.innerHTML = '<p class="text-gray-500 col-span-full text-center py-8">No matches yet</p>'; return; }
             container.innerHTML = matches.map(m => {
-                const t1 = teams[m.team1] || { name: m.team1 };
-                const t2 = teams[m.team2] || { name: m.team2 };
+                const t1 = teams[m.team1] || { name: m.team1 || 'TBD' };
+                const t2 = teams[m.team2] || { name: m.team2 || 'TBD' };
                 const pending = m.status === 'pending';
                 return `
                     <div class="bg-gray-800 rounded-lg border ${pending ? 'border-yellow-500' : 'border-gray-700'} p-4">
@@ -232,17 +268,24 @@
         }
 
         async function recordResult(matchId, winner) {
-            const resp = await fetch(`/api/matches/${matchId}/result`, {
+            const resp = await fetch(`/api/v1/play/${'{{ tournament_id }}'}/matches/${matchId}/result`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ winner })
             });
-            if (resp.ok) { showToast('Result recorded!', 'success'); loadMatches(); loadStandings(); }
-            else { const err = await resp.json(); showToast(err.error || 'Failed', 'error'); }
+            if (resp.ok) { 
+                showToast('Result recorded!', 'success'); 
+                loadMatches(); 
+                loadStandings(); 
+            }
+            else { 
+                const err = await resp.json(); 
+                showToast(err.error || 'Failed', 'error'); 
+            }
         }
 
         async function loadStandings() {
-            const resp = await fetch('/api/standings');
+            const resp = await fetch(`/api/v1/play/${'{{ tournament_id }}'}/standings`);
             const standings = await resp.json();
             const tbody = document.getElementById('standings-body');
             if (!tbody) return;
@@ -263,7 +306,7 @@
             document.getElementById('register-form').onsubmit = async (e) => {
                 e.preventDefault();
                 const form = e.target;
-                const resp = await fetch('/api/teams', {
+                const resp = await fetch(`/api/v1/play/${'{{ tournament_id }}'}/teams`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name: form.name.value, captain: form.captain.value })
@@ -273,8 +316,7 @@
             };
         }
 
-        loadTeams();
-        if (formAccess === 'results' || formAccess === 'readonly') { loadMatches(); loadStandings(); }
+        startPolling();
     </script>
 </body>
 </html>

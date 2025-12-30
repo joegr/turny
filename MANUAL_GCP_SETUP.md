@@ -1,6 +1,7 @@
 # Manual GCP Setup - Browser-Based Guide
 
-This guide walks through setting up each GCP service manually via the Cloud Console, following Google Cloud best practices.
+This guide walks through setting up the Tournament Platform on Google Cloud Run. 
+**Architecture:** Single Monolithic Service (Cloud Run) + Managed Database (Cloud SQL).
 
 ---
 
@@ -11,11 +12,8 @@ This guide walks through setting up each GCP service manually via the Cloud Cons
 Enable these APIs one by one:
 - [ ] **Cloud Run Admin API** - Search "Cloud Run Admin API" → Enable
 - [ ] **Cloud Build API** - Search "Cloud Build API" → Enable
-- [ ] **Artifact Registry API** - Search "Artifact Registry API" → Enable (Replaces Container Registry)
+- [ ] **Artifact Registry API** - Search "Artifact Registry API" → Enable
 - [ ] **Cloud SQL Admin API** - Search "Cloud SQL Admin API" → Enable
-- [ ] **Memorystore for Redis API** - Search "Memorystore for Redis API" → Enable
-- [ ] **Serverless VPC Access API** - Search "Serverless VPC Access API" → Enable
-- [ ] **Compute Engine API** - Search "Compute Engine API" → Enable
 
 **Time:** 5 minutes  
 **Cost:** Free
@@ -23,8 +21,6 @@ Enable these APIs one by one:
 ---
 
 ## Step 2: Create Artifact Registry Repository
-
-Google Container Registry (gcr.io) is deprecated. Use Artifact Registry for storing Docker images.
 
 **Console:** https://console.cloud.google.com/artifacts
 
@@ -35,7 +31,6 @@ Google Container Registry (gcr.io) is deprecated. Use Artifact Registry for stor
    - **Mode:** Standard
    - **Location type:** Region
    - **Region:** Choose your preferred region (e.g., `us-central1`)
-     *Important: Keep this consistent with your other services.*
 3. Click **"Create"**
 
 **Save this image path prefix:**
@@ -59,14 +54,13 @@ us-central1-docker.pkg.dev/YOUR_PROJECT_ID/tournament-repo
    - **Password:** Set a strong password (save this!)
    - **Database version:** PostgreSQL 15
    - **Region:** Same as Artifact Registry (e.g., `us-central1`)
-   - **Zonal availability:** Single zone (cheaper for dev, use HA for prod)
+   - **Zonal availability:** Single zone (cheaper for dev)
    
 4. Click **"Show Configuration Options"**
    - **Machine type:** Shared core → `db-f1-micro` (1 vCPU, 0.6 GB)
    - **Storage type:** SSD
    - **Storage capacity:** 10 GB
-   - **Connections:** Ensure **Public IP** is checked (required for standard Cloud Run connection without Private Service Connect). 
-     *Note: This allows access via authorized networks. Cloud Run uses the Cloud SQL Auth Proxy which connects securely.*
+   - **Connections:** Ensure **Public IP** is checked
    - **Enable automatic backups:** Yes
 
 5. Click **"Create Instance"** (takes 5-10 minutes)
@@ -96,102 +90,26 @@ Password: ___________________________________
 ```
 postgresql://tournament:YOUR_PASSWORD@/tournament_db?host=/cloudsql/YOUR_CONNECTION_NAME
 ```
-*Note: This Unix socket format is specific to Cloud Run.*
 
 **Time:** 10-15 minutes  
 **Cost:** ~$7-10/month
 
 ---
 
-## Step 4: Choose Redis Option
-
-You have two options for Redis:
-
-### Option A: Memorystore Redis (GCP-managed, more expensive)
-
-**Console:** https://console.cloud.google.com/memorystore/redis/instances
-
-1. Click **"Create Instance"**
-2. Configure:
-   - **Instance ID:** `tournament-redis`
-   - **Tier:** Basic
-   - **Capacity:** 1 GB
-   - **Region:** Same as Cloud SQL (e.g., `us-central1`)
-   - **Redis version:** 7.0
-   - **Network:** default
-   - **Connection mode:** Direct peering
-
-3. Click **"Create"** (takes 5-10 minutes)
-
-4. Once created, note the **IP address** and **port** (usually 6379)
-
-**REDIS_URL format:** `redis://YOUR_REDIS_HOST:6379`
-
-**Time:** 10-15 minutes  
-**Cost:** ~$35/month  
-**Note:** Requires VPC connector (Step 5)
-
----
-
-### Option B: External Redis (Recommended for cost savings)
-
-**Upstash (Free tier available):** https://upstash.com
-
-1. Sign up for Upstash
-2. Click **"Create Database"**
-3. Configure:
-   - **Region:** Choose AWS/GCP region closest to your Cloud Run region
-   - **TLS:** Enabled
-
-4. Copy the **Redis URL** from the dashboard
-
-**Time:** 5 minutes  
-**Cost:** Free tier available  
-**Note:** Skip Step 5 (VPC connector) if using external Redis
-
----
-
-## Step 5: Create VPC Connector (Only if using Memorystore)
-
-**Skip this step if using external Redis.**
-
-**Console:** https://console.cloud.google.com/networking/connectors
-
-1. Click **"Create Connector"**
-2. Configure:
-   - **Name:** `tournament-connector`
-   - **Region:** Same as your Cloud Run/Redis region
-   - **Network:** default
-   - **Subnet:** Create new subnet
-   - **IP range:** `10.8.0.0/28` (Must not overlap with existing subnets)
-   - **Min instances:** 2
-   - **Max instances:** 3
-   - **Machine type:** f1-micro
-
-3. Click **"Create"** (takes 2-3 minutes)
-
-**Time:** 5 minutes  
-**Cost:** ~$10/month
-
----
-
-## Step 6: Configure IAM Permissions
+## Step 4: Configure IAM Permissions
 
 **Console:** https://console.cloud.google.com/iam-admin/serviceaccounts
 
-### Create Service Account
-
 1. Click **"Create Service Account"**
 2. Configure:
-   - **Service account name:** `tournament-orchestrator`
-   - **Description:** "Service account for tournament orchestrator"
+   - **Service account name:** `tournament-runner`
+   - **Description:** "Service account for tournament application"
    
 3. Click **"Create and Continue"**
 
 4. Grant these roles:
-   - **Cloud Run Admin** - Allows deploying tournament services
    - **Cloud SQL Client** - Allows connecting to Cloud SQL
-   - **Service Account User** - Allows deploying services as this service account
+   - **Artifact Registry Reader** - Allows pulling images (optional if same project)
    - Click **"Continue"** → **"Done"**
 
 **Time:** 5 minutes  
@@ -199,7 +117,7 @@ You have two options for Redis:
 
 ---
 
-## Step 7: Verify and Document Your Configuration
+## Step 5: Verify and Document Your Configuration
 
 Create a `.env.cloudrun` file with your values:
 
@@ -212,17 +130,6 @@ ARTIFACT_REPO="us-central1-docker.pkg.dev/your-project-id/tournament-repo"
 # Database Configuration
 DATABASE_URL="postgresql://tournament:YOUR_PASSWORD@/tournament_db?host=/cloudsql/PROJECT:REGION:tournament-db"
 
-# Redis Configuration (choose one)
-# Option A: Memorystore
-REDIS_URL="redis://10.x.x.x:6379"
-
-# Option B: External (Upstash)
-# REDIS_URL="rediss://default:YOUR_TOKEN@YOUR_ENDPOINT.upstash.io:6379"
-
-# Cloud Run Configuration
-USE_CLOUD_RUN="true"
-TOURNAMENT_SERVICE_IMAGE="${ARTIFACT_REPO}/tournament-service:latest"
-
 # Optional
 SECRET_KEY="generate-a-random-secret-key"
 ```
@@ -231,45 +138,43 @@ SECRET_KEY="generate-a-random-secret-key"
 
 ## Next Steps: Build and Deploy
 
-1. **Build and push Docker images to Artifact Registry:**
+1. **Build and push Docker image:**
    ```bash
    source .env.cloudrun
    
-   # Submit builds to Cloud Build
-   gcloud builds submit --tag ${ARTIFACT_REPO}/tournament-orchestrator \
+   gcloud builds submit --tag ${ARTIFACT_REPO}/tournament-platform \
        -f Dockerfile.cloudrun.orchestrator .
-   
-   gcloud builds submit --tag ${ARTIFACT_REPO}/tournament-service \
-       -f Dockerfile.cloudrun.tournament .
    ```
 
-2. **Deploy orchestrator:**
+2. **Deploy to Cloud Run:**
    ```bash
-   gcloud run deploy tournament-orchestrator \
-       --image ${ARTIFACT_REPO}/tournament-orchestrator \
+   gcloud run deploy tournament-platform \
+       --image ${ARTIFACT_REPO}/tournament-platform \
        --region $GCP_REGION \
        --platform managed \
        --allow-unauthenticated \
-       --service-account tournament-orchestrator@$GCP_PROJECT_ID.iam.gserviceaccount.com \
+       --service-account tournament-runner@$GCP_PROJECT_ID.iam.gserviceaccount.com \
        --add-cloudsql-instances YOUR_CONNECTION_NAME \
-       --set-env-vars "USE_CLOUD_RUN=true,GCP_PROJECT_ID=$GCP_PROJECT_ID,GCP_REGION=$GCP_REGION,TOURNAMENT_SERVICE_IMAGE=${ARTIFACT_REPO}/tournament-service:latest,REDIS_URL=$REDIS_URL,DATABASE_URL=$DATABASE_URL"
+       --set-env-vars "GCP_PROJECT_ID=$GCP_PROJECT_ID,GCP_REGION=$GCP_REGION,DATABASE_URL=$DATABASE_URL"
    ```
 
-   **If using Memorystore, add:**
+3. **Get your URL:**
    ```bash
-   --vpc-connector tournament-connector
+   gcloud run services describe tournament-platform \
+       --region $GCP_REGION \
+       --format 'value(status.url)'
    ```
 
 ---
 
-## Cost Summary
+## Cost Summary (Minimum Viable)
 
 | Service | Configuration | Monthly Cost |
 |---------|--------------|--------------|
-| Cloud SQL | db-f1-micro, 10GB | $7-10 |
-| Redis (Memorystore) | 1GB Basic | $35 |
-| Redis (Upstash) | Free tier | $0 |
-| VPC Connector | f1-micro | $10 |
+| Cloud SQL | db-f1-micro, 10GB | ~$7-10 |
+| Cloud Run | On-demand CPU/Mem | Free tier usually covers low traffic |
+| Artifact Registry | Storage | Pennies |
+| **Total** | | **~$10/month** |
 | Cloud Run (orchestrator) | Pay per use | $0-5 |
 | Cloud Run (tournaments) | Pay per use | $0-10 |
 
