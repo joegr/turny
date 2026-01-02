@@ -1,5 +1,6 @@
 import os
 from flask import Flask, render_template, request, jsonify, Response, redirect, url_for
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from .config import config
 from .models import db, Tournament, Team
@@ -16,6 +17,15 @@ def create_app(config_name: str = None) -> Flask:
                 template_folder='templates',
                 static_folder='static')
     app.config.from_object(config[config_name])
+    
+    # Handle reverse proxy headers (for HTTPS behind Caddy)
+    app.wsgi_app = ProxyFix(
+        app.wsgi_app,
+        x_for=1,
+        x_proto=1,
+        x_host=1,
+        x_prefix=0
+    )
     
     # Initialize extensions
     db.init_app(app)

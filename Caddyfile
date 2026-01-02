@@ -1,0 +1,26 @@
+{
+    # Global options
+    auto_https off
+    local_certs
+}
+
+# Development/Local: Use localhost with self-signed cert
+localhost, 127.0.0.1 {
+    tls internal
+    
+    reverse_proxy orchestrator:5000 {
+        header_up X-Forwarded-Proto {scheme}
+        header_up X-Real-IP {remote_host}
+    }
+}
+
+# Production: Use your domain (set via DOMAIN env var)
+{$DOMAIN:tournament.local} {
+    # Caddy automatically gets Let's Encrypt certs for real domains
+    # For .local domains, it uses self-signed certs
+    
+    reverse_proxy orchestrator:5000 {
+        header_up X-Forwarded-Proto {scheme}
+        header_up X-Real-IP {remote_host}
+    }
+}

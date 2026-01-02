@@ -22,18 +22,32 @@ services:
       context: .
       dockerfile: Dockerfile.orchestrator
       target: production
-    ports:
-      - "5000:5000"
+    expose:
+      - "5000"
     depends_on:
       postgres:
         condition: service_healthy
-    environment:
-      - FLASK_ENV=development
-      - DATABASE_URL=postgresql://tournament:tournament123@postgres:5432/tournament_db
-      - SECRET_KEY=dev-secret-key
+    env_file:
+      - .env.local
     volumes:
       - ./orchestrator:/app/orchestrator
       - ./shared:/app/shared
+    networks:
+      - tournament-network
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    env_file:
+      - .env.local
+    depends_on:
+      - orchestrator
     networks:
       - tournament-network
 
@@ -75,3 +89,5 @@ networks:
 
 volumes:
   postgres_data:
+  caddy_data:
+  caddy_config:

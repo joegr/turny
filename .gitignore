@@ -10,6 +10,11 @@ ENV/
 *.egg-info/
 dist/
 build/
-.env
 .DS_Store
 *.log
+
+# Environment files (keep .env.example committed)
+.env
+.env.local
+.env.production
+.env.*.local
