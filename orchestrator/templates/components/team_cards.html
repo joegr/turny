@@ -1,0 +1,296 @@
+<!-- Team Card Components - Small, Medium, and Detail Views -->
+
+<!-- Small Card: Compact view with team name and ELO -->
+<template id="team-card-small-template">
+    <div class="team-card-small bg-gray-800 rounded-lg border border-gray-700 p-4 hover:border-yellow-500 transition-colors cursor-pointer">
+        <div class="flex items-center justify-between">
+            <div class="flex-1 min-w-0">
+                <h3 class="text-lg font-bold text-white truncate team-name"></h3>
+                <p class="text-sm text-gray-400 team-record"></p>
+            </div>
+            <div class="ml-4 text-right">
+                <div class="text-2xl font-bold text-yellow-500 team-elo"></div>
+                <p class="text-xs text-gray-500">ELO</p>
+            </div>
+        </div>
+    </div>
+</template>
+
+<!-- Medium Card: Includes captain, ELO, and recent matches -->
+<template id="team-card-medium-template">
+    <div class="team-card-medium bg-gray-800 rounded-lg border border-gray-700 p-6 hover:border-yellow-500 transition-all hover:shadow-lg cursor-pointer">
+        <div class="flex items-start justify-between mb-4">
+            <div class="flex-1 min-w-0">
+                <h3 class="text-xl font-bold text-white mb-1 team-name"></h3>
+                <p class="text-sm text-gray-400">
+                    <span class="inline-flex items-center">
+                        <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"/>
+                        </svg>
+                        <span class="team-captain"></span>
+                    </span>
+                </p>
+            </div>
+            <div class="text-right">
+                <div class="text-3xl font-bold text-yellow-500 team-elo"></div>
+                <p class="text-xs text-gray-500">ELO Rating</p>
+            </div>
+        </div>
+        
+        <div class="flex items-center space-x-4 mb-4 text-sm">
+            <div class="flex items-center">
+                <span class="text-green-500 font-bold team-wins"></span>
+                <span class="text-gray-400 ml-1">W</span>
+            </div>
+            <div class="flex items-center">
+                <span class="text-red-500 font-bold team-losses"></span>
+                <span class="text-gray-400 ml-1">L</span>
+            </div>
+            <div class="flex items-center">
+                <span class="text-gray-300 font-bold team-winrate"></span>
+                <span class="text-gray-400 ml-1">%</span>
+            </div>
+        </div>
+        
+        <div class="border-t border-gray-700 pt-4">
+            <p class="text-xs text-gray-500 mb-2">Recent Matches</p>
+            <div class="flex space-x-1 recent-matches">
+                <!-- Will be populated with match result indicators -->
+            </div>
+        </div>
+    </div>
+</template>
+
+<!-- Detail View: Full team information -->
+<template id="team-card-detail-template">
+    <div class="team-card-detail bg-gray-800 rounded-lg border border-gray-700">
+        <div class="p-6 border-b border-gray-700">
+            <div class="flex items-start justify-between">
+                <div class="flex-1">
+                    <h2 class="text-3xl font-bold text-white mb-2 team-name"></h2>
+                    <p class="text-gray-400 flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"/>
+                        </svg>
+                        Captain: <span class="ml-1 font-semibold team-captain"></span>
+                    </p>
+                </div>
+                <div class="text-right">
+                    <div class="text-5xl font-bold text-yellow-500 team-elo"></div>
+                    <p class="text-sm text-gray-500">ELO Rating</p>
+                    <div class="mt-2 text-sm elo-change"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="p-6 border-b border-gray-700">
+            <div class="grid grid-cols-3 gap-4">
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-green-500 team-wins"></div>
+                    <p class="text-sm text-gray-400">Wins</p>
+                </div>
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-red-500 team-losses"></div>
+                    <p class="text-sm text-gray-400">Losses</p>
+                </div>
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-yellow-500 team-winrate"></div>
+                    <p class="text-sm text-gray-400">Win Rate</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="p-6">
+            <h3 class="text-lg font-bold text-white mb-4">ELO History</h3>
+            <div class="elo-chart-container bg-gray-900 rounded-lg p-4" style="height: 200px;">
+                <canvas id="elo-chart"></canvas>
+            </div>
+        </div>
+        
+        <div class="p-6 border-t border-gray-700">
+            <h3 class="text-lg font-bold text-white mb-4">Match History</h3>
+            <div class="space-y-2 match-history-list">
+                <!-- Will be populated with match history items -->
+            </div>
+        </div>
+    </div>
+</template>
+
+<!-- Match History Item Template -->
+<template id="match-history-item-template">
+    <div class="match-history-item bg-gray-900 rounded-lg p-3 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+            <div class="result-badge w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm">
+                <!-- W or L -->
+            </div>
+            <div>
+                <p class="text-white font-semibold opponent-name"></p>
+                <p class="text-xs text-gray-500">
+                    Round <span class="round-num"></span> • <span class="match-date"></span>
+                </p>
+            </div>
+        </div>
+        <div class="text-right">
+            <div class="elo-change-badge text-sm font-semibold"></div>
+        </div>
+    </div>
+</template>
+
+<script>
+// Team Card Rendering Functions
+window.TeamCards = {
+    renderSmall(team, container) {
+        const template = document.getElementById('team-card-small-template');
+        const clone = template.content.cloneNode(true);
+        
+        clone.querySelector('.team-name').textContent = team.name;
+        clone.querySelector('.team-record').textContent = `${team.wins}-${team.losses}`;
+        clone.querySelector('.team-elo').textContent = team.elo_rating || 1500;
+        
+        const card = clone.querySelector('.team-card-small');
+        card.addEventListener('click', () => {
+            window.location.href = `/tournaments/${window.currentTournamentId}/teams/${team.team_id}`;
+        });
+        
+        container.appendChild(clone);
+    },
+    
+    renderMedium(team, recentMatches, container) {
+        const template = document.getElementById('team-card-medium-template');
+        const clone = template.content.cloneNode(true);
+        
+        clone.querySelector('.team-name').textContent = team.name;
+        clone.querySelector('.team-captain').textContent = team.captain;
+        clone.querySelector('.team-elo').textContent = team.elo_rating || 1500;
+        clone.querySelector('.team-wins').textContent = team.wins;
+        clone.querySelector('.team-losses').textContent = team.losses;
+        
+        const total = team.wins + team.losses;
+        const winrate = total > 0 ? Math.round((team.wins / total) * 100) : 0;
+        clone.querySelector('.team-winrate').textContent = winrate;
+        
+        // Render recent matches (last 3)
+        const matchesContainer = clone.querySelector('.recent-matches');
+        const recent = recentMatches.slice(0, 3);
+        recent.forEach(match => {
+            const indicator = document.createElement('div');
+            indicator.className = `w-8 h-8 rounded flex items-center justify-center text-xs font-bold ${
+                match.result === 'win' ? 'bg-green-500 text-white' : 
+                match.result === 'loss' ? 'bg-red-500 text-white' : 
+                'bg-gray-600 text-gray-400'
+            }`;
+            indicator.textContent = match.result === 'win' ? 'W' : match.result === 'loss' ? 'L' : '—';
+            matchesContainer.appendChild(indicator);
+        });
+        
+        const card = clone.querySelector('.team-card-medium');
+        card.addEventListener('click', () => {
+            window.location.href = `/tournaments/${window.currentTournamentId}/teams/${team.team_id}`;
+        });
+        
+        container.appendChild(clone);
+    },
+    
+    renderDetail(teamData, container) {
+        const { team, match_history, elo_history } = teamData;
+        const template = document.getElementById('team-card-detail-template');
+        const clone = template.content.cloneNode(true);
+        
+        clone.querySelector('.team-name').textContent = team.name;
+        clone.querySelector('.team-captain').textContent = team.captain;
+        clone.querySelector('.team-elo').textContent = team.elo_rating || 1500;
+        clone.querySelector('.team-wins').textContent = team.wins;
+        clone.querySelector('.team-losses').textContent = team.losses;
+        
+        const total = team.wins + team.losses;
+        const winrate = total > 0 ? `${Math.round((team.wins / total) * 100)}%` : '0%';
+        clone.querySelector('.team-winrate').textContent = winrate;
+        
+        // ELO change indicator
+        if (elo_history.length > 0) {
+            const latest = elo_history[elo_history.length - 1];
+            const changeEl = clone.querySelector('.elo-change');
+            const change = latest.rating_change;
+            changeEl.textContent = change > 0 ? `+${change}` : change;
+            changeEl.className = `mt-2 text-sm ${change > 0 ? 'text-green-500' : 'text-red-500'}`;
+        }
+        
+        // Render match history
+        const historyContainer = clone.querySelector('.match-history-list');
+        match_history.forEach(match => {
+            const itemTemplate = document.getElementById('match-history-item-template');
+            const itemClone = itemTemplate.content.cloneNode(true);
+            
+            const badge = itemClone.querySelector('.result-badge');
+            if (match.result === 'win') {
+                badge.className += ' bg-green-500 text-white';
+                badge.textContent = 'W';
+            } else if (match.result === 'loss') {
+                badge.className += ' bg-red-500 text-white';
+                badge.textContent = 'L';
+            } else {
+                badge.className += ' bg-gray-600 text-gray-400';
+                badge.textContent = '—';
+            }
+            
+            itemClone.querySelector('.opponent-name').textContent = match.opponent;
+            itemClone.querySelector('.round-num').textContent = match.round;
+            
+            const date = new Date(match.created_at);
+            itemClone.querySelector('.match-date').textContent = date.toLocaleDateString();
+            
+            // Find ELO change for this match
+            const eloChange = elo_history.find(h => h.match_id === match.match_id);
+            if (eloChange) {
+                const changeEl = itemClone.querySelector('.elo-change-badge');
+                const change = eloChange.rating_change;
+                changeEl.textContent = change > 0 ? `+${change}` : change;
+                changeEl.className += change > 0 ? ' text-green-500' : ' text-red-500';
+            }
+            
+            historyContainer.appendChild(itemClone);
+        });
+        
+        container.appendChild(clone);
+        
+        // Render ELO chart if Chart.js is available
+        if (window.Chart && elo_history.length > 0) {
+            setTimeout(() => {
+                const ctx = document.getElementById('elo-chart');
+                if (ctx) {
+                    new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: elo_history.map((_, i) => `Match ${i + 1}`),
+                            datasets: [{
+                                label: 'ELO Rating',
+                                data: elo_history.map(h => h.new_rating),
+                                borderColor: '#EAB308',
+                                backgroundColor: 'rgba(234, 179, 8, 0.1)',
+                                tension: 0.4
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false }
+                            },
+                            scales: {
+                                y: {
+                                    grid: { color: '#374151' },
+                                    ticks: { color: '#9CA3AF' }
+                                },
+                                x: {
+                                    grid: { color: '#374151' },
+                                    ticks: { color: '#9CA3AF' }
+                                }
+                            }
+                        }
+                    });
+                }
+            }, 100);
+        }
+    }
+};
+</script>

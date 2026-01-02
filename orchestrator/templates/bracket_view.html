@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}{{ tournament.name }} - Bracket View{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-900 text-white">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="mb-6 flex items-center justify-between">
+            <div>
+                <a href="/tournaments/{{ tournament_id }}/play" class="inline-flex items-center text-yellow-500 hover:text-yellow-400">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                    </svg>
+                    Back to Tournament
+                </a>
+                <h1 class="text-3xl font-bold mt-2">{{ tournament.name }}</h1>
+                <p class="text-gray-400">Tournament Bracket</p>
+            </div>
+            <div class="text-right">
+                <span class="inline-block px-3 py-1 rounded-full text-sm font-semibold
+                    {% if tournament.status == 'active' or tournament.status == 'in_progress' %}bg-green-900 text-green-200
+                    {% elif tournament.status == 'registration' %}bg-yellow-900 text-yellow-200
+                    {% elif tournament.status == 'completed' %}bg-blue-900 text-blue-200
+                    {% else %}bg-gray-700 text-gray-300{% endif %}">
+                    {{ tournament.status|upper }}
+                </span>
+            </div>
+        </div>
+
+        <!-- View Toggle -->
+        <div class="mb-6 flex space-x-2">
+            <a href="/tournaments/{{ tournament_id }}/list" 
+               class="px-4 py-2 bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700 transition-colors">
+                List View
+            </a>
+            <button class="px-4 py-2 bg-yellow-500 text-gray-900 rounded-lg font-semibold">
+                Bracket View
+            </button>
+        </div>
+
+        <!-- Tournament Visualization -->
+        {% if tournament.tournament_type == 'hybrid' %}
+            {% include 'components/bracket_columns.html' %}
+            {% include 'components/hybrid_view.html' %}
+        {% else %}
+            {% include 'components/bracket_columns.html' %}
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    window.currentTournamentId = '{{ tournament_id }}';
+    
+    document.addEventListener('DOMContentLoaded', async () => {
+        const tournamentType = '{{ tournament.tournament_type }}';
+        
+        // Initialize bracket modal (needed for match clicks in both views)
+        window.ColumnBracket.init('column-bracket-container');
+        
+        if (tournamentType === 'hybrid') {
+            // Use hybrid view for hybrid tournaments
+            const teamsAdvance = {{ tournament.teams_per_group_advance or 2 }};
+            await window.HybridView.init('{{ tournament_id }}', teamsAdvance);
+            
+            // Hide the standard bracket container
+            document.getElementById('column-bracket-container').style.display = 'none';
+        } else {
+            // Standard bracket view
+            window.ColumnBracket.render('{{ tournament_id }}');
+        }
+        
+        // Setup SSE for real-time updates
+        const eventSource = new EventSource(`/api/v1/play/{{ tournament_id }}/events`);
+        
+        eventSource.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            console.log('Received event:', data);
+            
+            // Re-render on relevant events
+            if (['match_completed', 'round_advanced', 'matches_created', 'knockout_stage_started'].includes(data.event_type)) {
+                if (tournamentType === 'hybrid') {
+                    window.HybridView.render();
+                } else {
+                    window.ColumnBracket.render('{{ tournament_id }}');
+                }
+            }
+        };
+        
+        eventSource.onerror = (error) => {
+            console.error('SSE error:', error);
+        };
+    });
+</script>
+{% endblock %}

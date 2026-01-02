@@ -146,7 +146,12 @@ def register_api_routes(app: Flask):
             name=name,
             tournament_type=data.get('tournament_type', 'single_elimination'),
             max_teams=data.get('max_teams', 16),
-            min_teams=data.get('min_teams', 4)
+            min_teams=data.get('min_teams', 4),
+            num_groups=data.get('num_groups', 0),
+            group_stage_rounds=data.get('group_stage_rounds', 3),
+            knockout_type=data.get('knockout_type', 'single_elimination'),
+            teams_per_group_advance=data.get('teams_per_group_advance', 2),
+            allow_draws=data.get('allow_draws', False)
         )
         
         return jsonify({
@@ -239,18 +244,6 @@ def register_api_routes(app: Flask):
         db.session.add(team)
         db.session.commit()
         
-        # Also register in the tournament service if running
-        if tournament.service_url:
-            import requests
-            try:
-                requests.post(
-                    f"{tournament.service_url}/api/teams",
-                    json={'team_id': team_id, 'name': name, 'captain': captain},
-                    timeout=5
-                )
-            except requests.exceptions.RequestException:
-                pass  # Service will sync on next request
-        
         return jsonify({
             'message': 'Team registered',
             'team': team.to_dict()
@@ -300,124 +293,33 @@ def register_api_routes(app: Flask):
             'tournament_ids': tournament_ids
         })
     
-    # ==================== Proxy to Tournament Service ====================
-    
-    @app.route('/api/v1/tournaments/<tournament_id>/proxy/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE'])
-    def api_proxy_to_service(tournament_id: str, path: str):
-        """Proxy requests to the tournament service."""
-        tournament = app.registry.get_tournament(tournament_id)
-        if not tournament:
-            return jsonify({'error': 'Tournament not found'}), 404
-        
-        if not tournament.service_url:
-            return jsonify({'error': 'Tournament service not running'}), 503
-        
-        import requests as req
-        
-        url = f"{tournament.service_url}/api/{path}"
-        
-        try:
-            if request.method == 'GET':
-                resp = req.get(url, params=request.args, timeout=10)
-            elif request.method == 'POST':
-                resp = req.post(url, json=request.json, timeout=10)
-            elif request.method == 'PUT':
-                resp = req.put(url, json=request.json, timeout=10)
-            elif request.method == 'DELETE':
-                resp = req.delete(url, timeout=10)
-            else:
-                return jsonify({'error': 'Method not allowed'}), 405
-            
-            return jsonify(resp.json()), resp.status_code
-            
-        except req.exceptions.RequestException as e:
-            return jsonify({'error': f'Service unavailable: {str(e)}'}), 503
-    
-    # ==================== Real-time Events (SSE) ====================
-    
-    @app.route('/api/v1/events/global')
-    def api_global_events():
-        """SSE endpoint for global announcements."""
-        def generate():
-            import time
-            # Create dedicated Redis connection for SSE with no timeout
-            sse_redis = redis.from_url(
-                app.config['REDIS_URL'],
-                decode_responses=True,
-                socket_timeout=None,
-                socket_connect_timeout=5
-            )
-            pubsub = sse_redis.pubsub(ignore_subscribe_messages=True)
-            pubsub.subscribe('global:announcements')
-            
-            yield f"data: {{\"type\":\"connected\"}}\n\n"
-            
-            while True:
-                message = pubsub.get_message(timeout=30)
-                if message and message['type'] == 'message':
-                    yield f"data: {message['data']}\n\n"
-                else:
-                    yield f": keepalive\n\n"
-        
-        return Response(generate(), mimetype='text/event-stream', headers={
-            'Cache-Control': 'no-cache',
-            'X-Accel-Buffering': 'no'
-        })
-    
-    @app.route('/api/v1/events/user/<user_id>')
-    def api_user_events(user_id: str):
-        """SSE endpoint for user notifications."""
-        def generate():
-            import time
-            sse_redis = redis.from_url(
-                app.config['REDIS_URL'],
-                decode_responses=True,
-                socket_timeout=None,
-                socket_connect_timeout=5
-            )
-            pubsub = sse_redis.pubsub(ignore_subscribe_messages=True)
-            pubsub.subscribe(f'user:{user_id}:notifications')
-            
-            tournament_ids = app.subscriptions.get_user_subscriptions(user_id)
-            for tid in tournament_ids:
-                pubsub.subscribe(f'tournament:{tid}:events')
-            
-            yield f"data: {{\"type\":\"connected\",\"user_id\":\"{user_id}\"}}\n\n"
-            
-            while True:
-                message = pubsub.get_message(timeout=30)
-                if message and message['type'] == 'message':
-                    yield f"data: {message['data']}\n\n"
-                else:
-                    yield f": keepalive\n\n"
-        
-        return Response(generate(), mimetype='text/event-stream', headers={
-            'Cache-Control': 'no-cache',
-            'X-Accel-Buffering': 'no'
-        })
-    
     # ==================== Health Check ====================
     
     @app.route('/health')
+    @app.route('/api/v1/health')
     def health_check():
-        """Health check endpoint."""
-        try:
-            app.redis.ping()
-            redis_ok = True
-        except:
-            redis_ok = False
+        """Health check endpoint - returns actual database connection status."""
+        import time
+        start = time.time()
         
         try:
             db.session.execute(db.text('SELECT 1'))
             db_ok = True
-        except:
+            db_error = None
+        except Exception as e:
             db_ok = False
+            db_error = str(e)
         
-        status = 'healthy' if (redis_ok and db_ok) else 'unhealthy'
+        latency_ms = round((time.time() - start) * 1000, 2)
+        status = 'healthy' if db_ok else 'unhealthy'
         code = 200 if status == 'healthy' else 503
         
         return jsonify({
             'status': status,
-            'redis': 'connected' if redis_ok else 'disconnected',
-            'database': 'connected' if db_ok else 'disconnected'
+            'database': {
+                'connected': db_ok,
+                'latency_ms': latency_ms if db_ok else None,
+                'error': db_error
+            },
+            'timestamp': time.time()
         }), code

@@ -24,9 +24,19 @@
                     </div>
                 </div>
             </div>
-            <div class="flex items-center space-x-2 text-sm">
-                <span class="w-2 h-2 rounded-full bg-gray-500" id="status-dot"></span>
-                <span id="status-text">Connecting...</span>
+            <div class="flex items-center space-x-4">
+                <a href="/tournaments/{{ tournament_id }}/play" 
+                   class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors flex items-center space-x-2">
+                    <i data-lucide="git-branch" class="w-4 h-4"></i>
+                    <span>Bracket View</span>
+                </a>
+                <button class="px-4 py-2 bg-yellow-500 text-gray-900 rounded-lg font-semibold">
+                    List View
+                </button>
+                <div class="flex items-center space-x-2 text-sm">
+                    <span class="w-2 h-2 rounded-full bg-gray-500" id="status-dot"></span>
+                    <span id="status-text">Connecting...</span>
+                </div>
             </div>
         </div>
     </header>
@@ -61,7 +71,7 @@
             <div class="bg-gray-800 rounded-lg border border-gray-700 p-6">
                 <div class="flex items-center justify-between">
                     <div>
-                        <h2 class="text-2xl font-bold">Round <span id="current-round">-</span></h2>
+                        <h2 class="text-2xl font-bold">Round <span id="current-round">-</span><span id="total-rounds-display"></span></h2>
                         <p class="text-gray-400" id="matches-status">Loading matches...</p>
                     </div>
                     <div class="text-right">
@@ -150,8 +160,12 @@
 
         // Poll for updates every 5 seconds
         async function pollUpdates() {
+            await Promise.all([loadState(), loadMatches(), loadStandings()]);
+        }
+        
+        async function loadState() {
             try {
-                const stateResp = await fetch(`/api/v1/play/${'{{ tournament_id }}'}/state`);
+                const stateResp = await fetch(`/api/v1/play/{{ tournament_id }}/state`);
                 if (!stateResp.ok) return;
                 
                 const stateData = await stateResp.json();
@@ -162,36 +176,46 @@
                 
                 document.getElementById('status-dot').className = 'w-2 h-2 rounded-full bg-green-500';
                 document.getElementById('status-text').textContent = 'Live';
-
-                if (stateData.state === 'completed' && formAccess !== 'readonly') {
-                    location.reload();
-                    return;
-                }
-
-                if (formAccess === 'results' || formAccess === 'readonly') {
-                    await Promise.all([loadMatches(), loadStandings()]);
-                }
-            } catch (e) {
-                console.error('Polling error:', e);
-                document.getElementById('status-dot').className = 'w-2 h-2 rounded-full bg-yellow-500';
-                document.getElementById('status-text').textContent = 'Reconnecting...';
+            } catch (error) {
+                console.error('Error loading state:', error);
             }
         }
-
-        function startPolling() {
-            loadTeams();
-            if (formAccess === 'results' || formAccess === 'readonly') {
-                loadMatches();
-                loadStandings();
-            }
+        
+        // Setup SSE for real-time updates
+        const eventSource = new EventSource(`/api/v1/play/{{ tournament_id }}/events`);
+        
+        eventSource.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            console.log('Received event:', data);
             
-            // Initial poll
-            pollUpdates();
-            pollingInterval = setInterval(pollUpdates, 5000);
+            // Update UI based on event type
+            if (data.event_type === 'connected') {
+                updateStatus('Connected', true);
+            } else if (['team_registered', 'match_completed', 'round_advanced', 'matches_created', 'tournament_started'].includes(data.event_type)) {
+                pollUpdates(); // Refresh data
+            }
+        };
+        
+        eventSource.onerror = (error) => {
+            console.error('SSE error:', error);
+            updateStatus('Connection lost - retrying...', false);
+            // Fallback to polling if SSE fails
+            setInterval(pollUpdates, 5000);
+        };
+        
+        function updateStatus(text, connected) {
+            const statusDot = document.getElementById('status-dot');
+            const statusText = document.getElementById('status-text');
+            if (statusDot) {
+                statusDot.className = `w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-gray-500'}`;
+            }
+            if (statusText) {
+                statusText.textContent = text;
+            }
         }
 
         async function loadTeams() {
-            const resp = await fetch(`/api/v1/play/${'{{ tournament_id }}'}/teams`);
+            const resp = await fetch(`/api/v1/play/{{ tournament_id }}/teams`);
             teams = await resp.json();
             if (formAccess === 'signup') renderTeamsList();
         }
@@ -210,7 +234,7 @@
 
         async function loadMatches() {
             if (formAccess !== 'results' && formAccess !== 'readonly') return;
-            const matchesResp = await fetch(`/api/v1/play/${'{{ tournament_id }}'}/matches`);
+            const matchesResp = await fetch(`/api/v1/play/{{ tournament_id }}/matches`);
             const matches = await matchesResp.json();
             
             // We need current round from state or infer it
@@ -268,7 +292,7 @@
         }
 
         async function recordResult(matchId, winner) {
-            const resp = await fetch(`/api/v1/play/${'{{ tournament_id }}'}/matches/${matchId}/result`, {
+            const resp = await fetch(`/api/v1/play/{{ tournament_id }}/matches/${matchId}/result`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ winner })
@@ -285,7 +309,7 @@
         }
 
         async function loadStandings() {
-            const resp = await fetch(`/api/v1/play/${'{{ tournament_id }}'}/standings`);
+            const resp = await fetch(`/api/v1/play/{{ tournament_id }}/standings`);
             const standings = await resp.json();
             const tbody = document.getElementById('standings-body');
             if (!tbody) return;
@@ -306,7 +330,7 @@
             document.getElementById('register-form').onsubmit = async (e) => {
                 e.preventDefault();
                 const form = e.target;
-                const resp = await fetch(`/api/v1/play/${'{{ tournament_id }}'}/teams`, {
+                const resp = await fetch(`/api/v1/play/{{ tournament_id }}/teams`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name: form.name.value, captain: form.captain.value })
@@ -316,7 +340,15 @@
             };
         }
 
-        startPolling();
+        // Initialize: load data on page load
+        async function init() {
+            await loadTeams();
+            await loadMatches();
+            await loadStandings();
+            updateStatus('Connected', true);
+        }
+        
+        init();
     </script>
 </body>
 </html>

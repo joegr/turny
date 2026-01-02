@@ -1,0 +1,26 @@
+# Testing dependencies
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-mock>=3.11.0
+pytest-bdd>=7.0.0
+pytest-asyncio>=0.21.0
+
+# HTTP testing
+requests-mock>=1.11.0
+httpx>=0.24.0
+
+# Flask testing utilities
+flask-testing>=0.8.1
+
+# Coverage reporting
+coverage>=7.3.0
+
+# Mocking
+responses>=0.23.0
+freezegun>=1.2.0
+
+# BDD/Gherkin support
+behave>=1.2.6
+
+# Client-side testing (if using Node)
+# Run: npm install --save-dev jest @testing-library/jest-dom jsdom

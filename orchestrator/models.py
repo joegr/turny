@@ -16,6 +16,13 @@ class Tournament(db.Model):
     max_teams = db.Column(db.Integer, default=16)
     min_teams = db.Column(db.Integer, default=4)
     
+    # Group/Hybrid tournament settings
+    num_groups = db.Column(db.Integer, default=0)  # 0 = no groups
+    group_stage_rounds = db.Column(db.Integer, default=3)  # Rounds per group (round robin)
+    knockout_type = db.Column(db.String(50), default='single_elimination')  # For hybrid: knockout stage type
+    teams_per_group_advance = db.Column(db.Integer, default=2)  # How many teams advance from each group
+    allow_draws = db.Column(db.Boolean, default=False)  # Football-style draws allowed
+    
     # Service instance info (Monolith: deprecated but kept for compatibility or future scaling)
     service_port = db.Column(db.Integer, nullable=True)
     service_host = db.Column(db.String(100), nullable=True)
@@ -46,6 +53,11 @@ class Tournament(db.Model):
             'current_round': self.current_round,
             'max_teams': self.max_teams,
             'min_teams': self.min_teams,
+            'num_groups': self.num_groups,
+            'group_stage_rounds': self.group_stage_rounds,
+            'knockout_type': self.knockout_type,
+            'teams_per_group_advance': self.teams_per_group_advance,
+            'allow_draws': self.allow_draws,
             'team_count': len(self.teams),
             'winner_team_id': self.winner_team_id,
             'service_url': self.service_url_prop,
@@ -73,12 +85,19 @@ class Team(db.Model):
     tournament_id = db.Column(db.Integer, db.ForeignKey('tournaments.id'), nullable=False)
     name = db.Column(db.String(100), nullable=False)
     captain = db.Column(db.String(100), nullable=False)
+    group_name = db.Column(db.String(50), nullable=True)  # e.g., 'A', 'B', 'C', 'D'
     wins = db.Column(db.Integer, default=0)
     losses = db.Column(db.Integer, default=0)
+    draws = db.Column(db.Integer, default=0)
+    points = db.Column(db.Integer, default=0)  # Football: 3 for win, 1 for draw, 0 for loss
+    goals_for = db.Column(db.Integer, default=0)  # Optional: for goal difference tiebreaker
+    goals_against = db.Column(db.Integer, default=0)
+    elo_rating = db.Column(db.Integer, default=1500)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     tournament = db.relationship('Tournament', back_populates='teams')
+    elo_history = db.relationship('EloHistory', back_populates='team', cascade='all, delete-orphan')
     
     __table_args__ = (
         db.UniqueConstraint('team_id', 'tournament_id', name='unique_team_per_tournament'),
@@ -91,6 +110,13 @@ class Team(db.Model):
             'captain': self.captain,
             'wins': self.wins,
             'losses': self.losses,
+            'draws': self.draws,
+            'points': self.points,
+            'goals_for': self.goals_for,
+            'goals_against': self.goals_against,
+            'goal_difference': self.goals_for - self.goals_against,
+            'group': self.group_name,
+            'elo_rating': self.elo_rating,
         }
 
 
@@ -102,9 +128,22 @@ class Match(db.Model):
     tournament_id = db.Column(db.Integer, db.ForeignKey('tournaments.id'), nullable=False)
     round_num = db.Column(db.Integer, nullable=False)
     
-    team1_id = db.Column(db.String(50), nullable=True) # using string ID to match Team.team_id logic or we can join
+    team1_id = db.Column(db.String(50), nullable=True)
     team2_id = db.Column(db.String(50), nullable=True)
     winner_id = db.Column(db.String(50), nullable=True)
+    is_draw = db.Column(db.Boolean, default=False)  # Football-style draw
+    
+    # Scores (for football-style)
+    team1_score = db.Column(db.Integer, nullable=True)
+    team2_score = db.Column(db.Integer, nullable=True)
+    
+    # Group/Stage info
+    group_name = db.Column(db.String(50), nullable=True)  # Which group this match belongs to
+    stage = db.Column(db.String(50), default='knockout')  # 'group' or 'knockout'
+    
+    # ELO-based win probabilities
+    team1_win_probability = db.Column(db.Float, nullable=True)
+    team2_win_probability = db.Column(db.Float, nullable=True)
     
     status = db.Column(db.String(20), default='pending') # pending, completed, abandoned
     
@@ -124,9 +163,32 @@ class Match(db.Model):
             'team2': self.team2_id,
             'winner': self.winner_id,
             'status': self.status,
-            'round': self.round_num
+            'round': self.round_num,
+            'is_draw': self.is_draw,
+            'team1_score': self.team1_score,
+            'team2_score': self.team2_score,
+            'group': self.group_name,
+            'stage': self.stage,
+            'team1_win_probability': self.team1_win_probability,
+            'team2_win_probability': self.team2_win_probability,
         }
 
+
+
+class EloHistory(db.Model):
+    __tablename__ = 'elo_history'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    team_id = db.Column(db.Integer, db.ForeignKey('teams.id'), nullable=False)
+    match_id = db.Column(db.String(50), nullable=True)
+    old_rating = db.Column(db.Integer, nullable=False)
+    new_rating = db.Column(db.Integer, nullable=False)
+    rating_change = db.Column(db.Integer, nullable=False)
+    opponent_rating = db.Column(db.Integer, nullable=True)
+    result = db.Column(db.String(10), nullable=False)  # 'win', 'loss', 'draw'
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    team = db.relationship('Team', back_populates='elo_history')
 
 
 class Subscription(db.Model):

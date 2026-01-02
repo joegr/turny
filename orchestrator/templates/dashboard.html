@@ -76,37 +76,20 @@
 {% block scripts %}
 <script>
     const userId = '{{ user_id }}';
-    
-    // Connect to user-specific events
-    connectSSE(`/api/v1/events/user/${userId}`);
-    
     const notifications = [];
-    window.addEventListener('tournament-event', (e) => {
-        const event = e.detail;
-        
-        notifications.unshift({
-            type: event.type,
-            message: formatEventMessage(event),
-            time: new Date().toLocaleTimeString()
-        });
-        
-        if (notifications.length > 20) notifications.pop();
-        
-        renderNotifications();
-    });
     
-    function formatEventMessage(event) {
-        const messages = {
-            'state.changed': `Tournament state changed`,
-            'match.result': `Match completed`,
-            'round.started': `Round ${event.data?.round || '?'} started`,
-            'tournament.completed': `Tournament finished!`
-        };
-        return messages[event.type] || event.type;
+    // Polling for updates (simplified for Monolith)
+    async function checkUpdates() {
+        // In a real app, we'd poll an endpoint for recent events
+        // For MVP, we'll just rely on page refreshes or basic polling if needed
     }
     
     function renderNotifications() {
         const container = document.getElementById('notifications');
+        if (notifications.length === 0) {
+            container.innerHTML = '<p class="text-gray-500 text-center py-4">No new notifications</p>';
+            return;
+        }
         container.innerHTML = notifications.map(n => `
             <div class="bg-gray-700 rounded-lg p-3">
                 <p class="text-sm">${n.message}</p>
@@ -129,5 +112,6 @@
     }
     
     lucide.createIcons();
+    renderNotifications();
 </script>
 {% endblock %}

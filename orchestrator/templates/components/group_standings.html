@@ -1,0 +1,187 @@
+<style>
+    .group-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+        gap: 1.5rem;
+        padding: 1rem;
+    }
+
+    .group-card {
+        background: #1F2937;
+        border: 1px solid #374151;
+        border-radius: 0.75rem;
+        overflow: hidden;
+    }
+
+    .group-header {
+        background: #374151;
+        padding: 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .group-name {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: #EAB308;
+    }
+
+    .group-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .group-table th {
+        padding: 0.75rem 0.5rem;
+        text-align: center;
+        font-size: 0.75rem;
+        color: #9CA3AF;
+        border-bottom: 1px solid #374151;
+    }
+
+    .group-table th:first-child,
+    .group-table td:first-child {
+        text-align: left;
+        padding-left: 1rem;
+    }
+
+    .group-table td {
+        padding: 0.75rem 0.5rem;
+        text-align: center;
+        border-bottom: 1px solid #374151;
+    }
+
+    .group-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .group-table tr.qualifies {
+        background: rgba(16, 185, 129, 0.1);
+    }
+
+    .team-name-cell {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .team-rank {
+        width: 1.5rem;
+        height: 1.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .rank-1 { background: #EAB308; color: #111827; }
+    .rank-2 { background: #9CA3AF; color: #111827; }
+    .rank-3 { background: #B45309; color: white; }
+
+    .points-cell {
+        font-weight: 700;
+        color: #10B981;
+    }
+
+    .gd-positive { color: #10B981; }
+    .gd-negative { color: #EF4444; }
+    .gd-zero { color: #9CA3AF; }
+</style>
+
+<div id="group-standings-container" class="group-container">
+    <div class="text-gray-400 text-center w-full mt-10">Loading group standings...</div>
+</div>
+
+<script>
+window.GroupStandings = {
+    containerId: 'group-standings-container',
+    teamsAdvance: 2,
+    
+    init(containerId, teamsAdvance = 2) {
+        if (containerId) this.containerId = containerId;
+        this.teamsAdvance = teamsAdvance;
+    },
+
+    async render(tournamentId) {
+        try {
+            const container = document.getElementById(this.containerId);
+            if (!container) return;
+
+            const resp = await fetch(`/api/v1/play/${tournamentId}/group-standings`);
+            if (!resp.ok) throw new Error("Failed to fetch group standings");
+
+            const groups = await resp.json();
+            const groupNames = Object.keys(groups).sort();
+
+            if (groupNames.length === 0) {
+                container.innerHTML = '<div class="text-gray-400 text-center w-full mt-10">No groups found</div>';
+                return;
+            }
+
+            container.innerHTML = groupNames.map(groupName => this.createGroupCard(groupName, groups[groupName])).join('');
+
+        } catch (error) {
+            console.error("Error rendering group standings:", error);
+            const container = document.getElementById(this.containerId);
+            if (container) container.innerHTML = '<div class="text-red-500 text-center w-full mt-10">Error loading group standings</div>';
+        }
+    },
+
+    createGroupCard(groupName, standings) {
+        const rows = standings.map((team, idx) => {
+            const qualifies = idx < this.teamsAdvance;
+            const gdClass = team.goal_difference > 0 ? 'gd-positive' : team.goal_difference < 0 ? 'gd-negative' : 'gd-zero';
+            const gdDisplay = team.goal_difference > 0 ? `+${team.goal_difference}` : team.goal_difference;
+            
+            return `
+                <tr class="${qualifies ? 'qualifies' : ''}">
+                    <td>
+                        <div class="team-name-cell">
+                            <span class="team-rank ${idx < 3 ? 'rank-' + (idx + 1) : ''}">${idx + 1}</span>
+                            <span class="font-medium text-white">${team.name}</span>
+                        </div>
+                    </td>
+                    <td>${team.played || 0}</td>
+                    <td class="text-green-400">${team.wins}</td>
+                    <td class="text-gray-400">${team.draws || 0}</td>
+                    <td class="text-red-400">${team.losses}</td>
+                    <td>${team.goals_for || 0}</td>
+                    <td>${team.goals_against || 0}</td>
+                    <td class="${gdClass}">${gdDisplay}</td>
+                    <td class="points-cell">${team.points || 0}</td>
+                </tr>
+            `;
+        }).join('');
+
+        return `
+            <div class="group-card">
+                <div class="group-header">
+                    <span class="group-name">Group ${groupName}</span>
+                    <span class="text-sm text-gray-400">Top ${this.teamsAdvance} qualify</span>
+                </div>
+                <table class="group-table">
+                    <thead>
+                        <tr>
+                            <th>Team</th>
+                            <th>P</th>
+                            <th>W</th>
+                            <th>D</th>
+                            <th>L</th>
+                            <th>GF</th>
+                            <th>GA</th>
+                            <th>GD</th>
+                            <th>Pts</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }
+};
+</script>

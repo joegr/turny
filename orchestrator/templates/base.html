@@ -78,54 +78,45 @@
             }, 5000);
         }
 
-        // SSE connection for real-time updates
-        let eventSource = null;
+        // Database connection status polling
+        let lastDbStatus = null;
         
-        function connectSSE(endpoint) {
-            if (eventSource) eventSource.close();
+        async function checkHealth() {
+            const statusDot = document.getElementById('status-dot');
+            const statusText = document.getElementById('status-text');
             
-            eventSource = new EventSource(endpoint);
-            
-            eventSource.onopen = () => {
-                document.getElementById('status-dot').className = 'w-2 h-2 rounded-full bg-green-500';
-                document.getElementById('status-text').textContent = 'Connected';
-            };
-            
-            eventSource.onerror = () => {
-                document.getElementById('status-dot').className = 'w-2 h-2 rounded-full bg-red-500';
-                document.getElementById('status-text').textContent = 'Disconnected';
-            };
-            
-            eventSource.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                handleEvent(data);
-            };
-        }
-
-        function handleEvent(event) {
-            console.log('Event received:', event);
-            
-            switch(event.type) {
-                case 'tournament.published':
-                    showToast('New tournament available!', 'info');
-                    break;
-                case 'tournament.started':
-                    showToast('Tournament has started!', 'success');
-                    break;
-                case 'match.result':
-                    showToast(`Match completed: ${event.data?.winner} wins!`, 'info');
-                    break;
-                case 'tournament.completed':
-                    showToast('Tournament completed!', 'success');
-                    break;
+            try {
+                const resp = await fetch('/api/v1/health');
+                const data = await resp.json();
+                
+                if (data.database?.connected) {
+                    statusDot.className = 'w-2 h-2 rounded-full bg-green-500';
+                    statusText.textContent = `DB Connected (${data.database.latency_ms}ms)`;
+                    if (lastDbStatus === false) {
+                        showToast('Database connection restored', 'success');
+                    }
+                    lastDbStatus = true;
+                } else {
+                    statusDot.className = 'w-2 h-2 rounded-full bg-red-500';
+                    statusText.textContent = 'DB Disconnected';
+                    if (lastDbStatus !== false) {
+                        showToast('Database connection lost', 'error');
+                    }
+                    lastDbStatus = false;
+                }
+            } catch (error) {
+                statusDot.className = 'w-2 h-2 rounded-full bg-yellow-500';
+                statusText.textContent = 'API Unreachable';
+                if (lastDbStatus !== null) {
+                    showToast('Cannot reach server', 'warning');
+                }
+                lastDbStatus = null;
             }
-            
-            // Dispatch custom event for page-specific handlers
-            window.dispatchEvent(new CustomEvent('tournament-event', { detail: event }));
         }
-
-        // Connect to global events by default
-        connectSSE('/api/v1/events/global');
+        
+        // Check health immediately and then every 10 seconds
+        checkHealth();
+        setInterval(checkHealth, 10000);
     </script>
     {% block scripts %}{% endblock %}
 </body>

@@ -240,7 +240,7 @@
         if (!confirm('Start the tournament? Registration will close.')) return;
         
         try {
-            const resp = await fetch(`/api/v1/tournaments/${tournamentId}/proxy/start`, { method: 'POST' });
+            const resp = await fetch(`/api/v1/play/${tournamentId}/start`, { method: 'POST' });
             if (resp.ok) {
                 showToast('Tournament started!', 'success');
                 location.reload();

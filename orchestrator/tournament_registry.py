@@ -5,11 +5,10 @@ import time
 import requests
 from typing import Optional, Tuple, List
 from flask import current_app
-import redis
 
 from .models import db, Tournament, Team
+from .name_generator import generate_tournament_name, generate_short_id
 from shared.state_machine import TournamentStateMachine, TournamentState, TransitionError
-from shared.events import state_changed_event
 
 
 class TournamentRegistry:
@@ -36,10 +35,26 @@ class TournamentRegistry:
         tournament_type: str = 'single_elimination',
         max_teams: int = 16,
         min_teams: int = 4,
-        scheduled_start: str = None
+        scheduled_start: str = None,
+        num_groups: int = 0,
+        group_stage_rounds: int = 3,
+        knockout_type: str = 'single_elimination',
+        teams_per_group_advance: int = 2,
+        allow_draws: bool = False
     ) -> Tournament:
         """Create a new tournament in draft state."""
-        tournament_id = f"t_{uuid.uuid4().hex[:12]}"
+        # Generate friendly tournament ID
+        tournament_id = generate_tournament_name()
+        
+        # Check for uniqueness (unlikely collision but handle it)
+        existing = Tournament.query.filter_by(tournament_id=tournament_id).first()
+        if existing:
+            # Fallback to short ID if collision
+            tournament_id = f"{tournament_id}-{generate_short_id()[:4]}"
+        
+        # For hybrid/round_robin with groups, enable draws by default
+        if tournament_type in ['hybrid', 'round_robin'] and num_groups > 0:
+            allow_draws = True
         
         tournament = Tournament(
             tournament_id=tournament_id,
@@ -47,7 +62,12 @@ class TournamentRegistry:
             tournament_type=tournament_type,
             status='draft',
             max_teams=max_teams,
-            min_teams=min_teams
+            min_teams=min_teams,
+            num_groups=num_groups,
+            group_stage_rounds=group_stage_rounds,
+            knockout_type=knockout_type,
+            teams_per_group_advance=teams_per_group_advance,
+            allow_draws=allow_draws
         )
         
         db.session.add(tournament)

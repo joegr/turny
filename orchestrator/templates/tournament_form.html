@@ -24,15 +24,15 @@
 
             <div>
                 <label class="block text-sm text-gray-400 mb-2">Tournament Type</label>
-                <div class="grid grid-cols-2 gap-4">
+                <div class="grid grid-cols-3 gap-4">
                     <label class="relative">
                         <input type="radio" name="tournament_type" value="single_elimination" checked class="sr-only peer">
                         <div class="bg-gray-700 border-2 border-gray-600 rounded-lg p-4 cursor-pointer peer-checked:border-yellow-500 peer-checked:bg-gray-600">
                             <div class="flex items-center space-x-3">
                                 <i data-lucide="git-branch" class="w-6 h-6 text-yellow-500"></i>
                                 <div>
-                                    <p class="font-semibold">Single Elimination</p>
-                                    <p class="text-sm text-gray-400">Lose once, you're out</p>
+                                    <p class="font-semibold">Single Elim</p>
+                                    <p class="text-sm text-gray-400">Lose once, out</p>
                                 </div>
                             </div>
                         </div>
@@ -44,7 +44,19 @@
                                 <i data-lucide="refresh-cw" class="w-6 h-6 text-blue-500"></i>
                                 <div>
                                     <p class="font-semibold">Round Robin</p>
-                                    <p class="text-sm text-gray-400">Everyone plays everyone</p>
+                                    <p class="text-sm text-gray-400">Play everyone</p>
+                                </div>
+                            </div>
+                        </div>
+                    </label>
+                    <label class="relative">
+                        <input type="radio" name="tournament_type" value="hybrid" class="sr-only peer">
+                        <div class="bg-gray-700 border-2 border-gray-600 rounded-lg p-4 cursor-pointer peer-checked:border-yellow-500 peer-checked:bg-gray-600">
+                            <div class="flex items-center space-x-3">
+                                <i data-lucide="layers" class="w-6 h-6 text-green-500"></i>
+                                <div>
+                                    <p class="font-semibold">Hybrid</p>
+                                    <p class="text-sm text-gray-400">Groups + Knockout</p>
                                 </div>
                             </div>
                         </div>
@@ -52,11 +64,66 @@
                 </div>
             </div>
 
+            <!-- Group/Hybrid Settings (shown when hybrid or round_robin with groups is selected) -->
+            <div id="group-settings" class="space-y-4 hidden">
+                <div class="border-t border-gray-700 pt-4">
+                    <h3 class="text-lg font-semibold mb-4 flex items-center space-x-2">
+                        <i data-lucide="users" class="w-5 h-5 text-green-500"></i>
+                        <span>Group Stage Settings</span>
+                    </h3>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-2">Number of Groups</label>
+                            <select name="num_groups" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 focus:outline-none focus:border-yellow-500">
+                                <option value="2">2 Groups (A, B)</option>
+                                <option value="4" selected>4 Groups (A, B, C, D)</option>
+                                <option value="8">8 Groups</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-2">Teams Advance Per Group</label>
+                            <select name="teams_per_group_advance" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 focus:outline-none focus:border-yellow-500">
+                                <option value="1">Top 1</option>
+                                <option value="2" selected>Top 2</option>
+                                <option value="4">Top 4</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <label class="block text-sm text-gray-400 mb-2">Knockout Stage Type</label>
+                        <div class="grid grid-cols-2 gap-4">
+                            <label class="flex items-center space-x-3 bg-gray-700 rounded-lg p-3 cursor-pointer">
+                                <input type="radio" name="knockout_type" value="single_elimination" checked class="text-yellow-500">
+                                <span>Single Elimination</span>
+                            </label>
+                            <label class="flex items-center space-x-3 bg-gray-700 rounded-lg p-3 cursor-pointer">
+                                <input type="radio" name="knockout_type" value="double_elimination" class="text-yellow-500">
+                                <span>Double Elimination</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Football-style Settings -->
+            <div id="football-settings" class="hidden">
+                <div class="flex items-center space-x-3 bg-gray-700 rounded-lg p-4">
+                    <input type="checkbox" name="allow_draws" id="allow_draws" class="w-5 h-5 text-yellow-500 rounded">
+                    <label for="allow_draws" class="cursor-pointer">
+                        <p class="font-semibold">Allow Draws (Football-style)</p>
+                        <p class="text-sm text-gray-400">3 pts for win, 1 pt for draw, 0 for loss</p>
+                    </label>
+                </div>
+            </div>
+
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <label class="block text-sm text-gray-400 mb-2">Minimum Teams</label>
-                    <input type="number" name="min_teams" value="4" min="2" max="64"
+                    <input type="number" id="min_teams" name="min_teams" value="4" min="2" max="64"
                         class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 focus:outline-none focus:border-yellow-500">
+                    <p class="text-xs text-gray-500 mt-1" id="min_teams_hint">Single elimination requires 4+ teams (2 rounds minimum)</p>
                 </div>
                 <div>
                     <label class="block text-sm text-gray-400 mb-2">Maximum Teams</label>
@@ -89,16 +156,65 @@
 
 {% block scripts %}
 <script>
+    const tournamentTypeInputs = document.querySelectorAll('input[name="tournament_type"]');
+    const minTeamsInput = document.getElementById('min_teams');
+    const minTeamsHint = document.getElementById('min_teams_hint');
+    const groupSettings = document.getElementById('group-settings');
+    const footballSettings = document.getElementById('football-settings');
+    
+    function updateFormSettings() {
+        const selectedType = document.querySelector('input[name="tournament_type"]:checked').value;
+        
+        // Update min teams
+        if (selectedType === 'single_elimination') {
+            minTeamsInput.min = '4';
+            if (parseInt(minTeamsInput.value) < 4) minTeamsInput.value = '4';
+            minTeamsHint.textContent = 'Single elimination requires 4+ teams';
+            groupSettings.classList.add('hidden');
+            footballSettings.classList.add('hidden');
+        } else if (selectedType === 'round_robin') {
+            minTeamsInput.min = '2';
+            minTeamsHint.textContent = 'Round robin requires 2+ teams';
+            groupSettings.classList.add('hidden');
+            footballSettings.classList.remove('hidden');
+        } else if (selectedType === 'hybrid') {
+            minTeamsInput.min = '8';
+            if (parseInt(minTeamsInput.value) < 8) minTeamsInput.value = '16';
+            minTeamsHint.textContent = 'Hybrid requires 8+ teams (min 4 per group)';
+            groupSettings.classList.remove('hidden');
+            footballSettings.classList.remove('hidden');
+            document.getElementById('allow_draws').checked = true;
+        }
+        
+        lucide.createIcons();
+    }
+    
+    tournamentTypeInputs.forEach(input => {
+        input.addEventListener('change', updateFormSettings);
+    });
+    
+    updateFormSettings();
+    
     document.getElementById('tournament-form').onsubmit = async (e) => {
         e.preventDefault();
         const form = e.target;
+        const tournamentType = form.tournament_type.value;
         
         const data = {
             name: form.name.value,
-            tournament_type: form.tournament_type.value,
+            tournament_type: tournamentType,
             min_teams: parseInt(form.min_teams.value),
-            max_teams: parseInt(form.max_teams.value)
+            max_teams: parseInt(form.max_teams.value),
+            allow_draws: form.allow_draws?.checked || false
         };
+        
+        // Add hybrid/group settings if applicable
+        if (tournamentType === 'hybrid') {
+            data.num_groups = parseInt(form.num_groups.value);
+            data.teams_per_group_advance = parseInt(form.teams_per_group_advance.value);
+            data.knockout_type = form.knockout_type.value;
+            data.allow_draws = true;
+        }
         
         try {
             const resp = await fetch('/api/v1/tournaments', {

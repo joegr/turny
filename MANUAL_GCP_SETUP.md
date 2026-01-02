@@ -175,11 +175,6 @@ SECRET_KEY="generate-a-random-secret-key"
 | Cloud Run | On-demand CPU/Mem | Free tier usually covers low traffic |
 | Artifact Registry | Storage | Pennies |
 | **Total** | | **~$10/month** |
-| Cloud Run (orchestrator) | Pay per use | $0-5 |
-| Cloud Run (tournaments) | Pay per use | $0-10 |
-
-**Total with Memorystore:** ~$52-70/month  
-**Total with Upstash:** ~$17-25/month (60% savings!)
 
 ---
 
@@ -190,17 +185,8 @@ SECRET_KEY="generate-a-random-secret-key"
 - Ensure Cloud SQL Client role is granted
 - Check that `--add-cloudsql-instances` flag is used in deployment
 
-### Can't connect to Redis (Memorystore)
-- Verify VPC connector is created and attached
-- Check Redis IP address is correct
-- Ensure Redis and VPC connector are in same region
-
 ### Permission denied errors
 - Verify service account has Cloud Run Admin role
 - Check that Service Account User role is granted
 - Ensure you're using the correct service account in deployment
 
-### Tournament services not deploying
-- Check orchestrator logs: `gcloud run logs read --service tournament-orchestrator`
-- Verify TOURNAMENT_SERVICE_IMAGE environment variable is set
-- Ensure service account has Cloud Run Admin permissions

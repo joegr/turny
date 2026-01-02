@@ -1,0 +1,505 @@
+<style>
+    .hybrid-container {
+        padding: 1rem;
+    }
+
+    .stage-tabs {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1.5rem;
+        border-bottom: 2px solid #374151;
+        padding-bottom: 0.5rem;
+    }
+
+    .stage-tab {
+        padding: 0.75rem 1.5rem;
+        background: #1F2937;
+        border: 1px solid #374151;
+        border-radius: 0.5rem 0.5rem 0 0;
+        color: #9CA3AF;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+
+    .stage-tab:hover {
+        background: #374151;
+        color: #F3F4F6;
+    }
+
+    .stage-tab.active {
+        background: #EAB308;
+        color: #111827;
+        border-color: #EAB308;
+    }
+
+    .stage-tab.disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .stage-content {
+        display: none;
+    }
+
+    .stage-content.active {
+        display: block;
+    }
+
+    .groups-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .group-card {
+        background: #1F2937;
+        border: 1px solid #374151;
+        border-radius: 0.75rem;
+        overflow: hidden;
+    }
+
+    .group-header {
+        background: #374151;
+        padding: 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .group-name {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: #EAB308;
+    }
+
+    .standings-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.875rem;
+    }
+
+    .standings-table th {
+        padding: 0.5rem;
+        text-align: center;
+        color: #9CA3AF;
+        border-bottom: 1px solid #374151;
+        font-size: 0.75rem;
+    }
+
+    .standings-table th:first-child {
+        text-align: left;
+        padding-left: 1rem;
+    }
+
+    .standings-table td {
+        padding: 0.5rem;
+        text-align: center;
+        border-bottom: 1px solid #374151;
+    }
+
+    .standings-table td:first-child {
+        text-align: left;
+        padding-left: 1rem;
+    }
+
+    .standings-table tr.qualifies {
+        background: rgba(16, 185, 129, 0.1);
+    }
+
+    .team-cell {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .rank-badge {
+        width: 1.5rem;
+        height: 1.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .rank-1 { background: #EAB308; color: #111827; }
+    .rank-2 { background: #9CA3AF; color: #111827; }
+
+    .group-matches {
+        padding: 1rem;
+        border-top: 1px solid #374151;
+    }
+
+    .group-matches-title {
+        font-weight: 600;
+        color: #9CA3AF;
+        margin-bottom: 0.75rem;
+        font-size: 0.875rem;
+    }
+
+    .match-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.5rem;
+        background: #111827;
+        border-radius: 0.375rem;
+        margin-bottom: 0.5rem;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .match-item:hover {
+        background: #1a2332;
+        border-color: #EAB308;
+    }
+
+    .match-item.completed {
+        border-left: 3px solid #10B981;
+    }
+
+    .match-item.pending {
+        border-left: 3px solid #EAB308;
+    }
+
+    .match-teams {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .match-team {
+        font-size: 0.875rem;
+        color: #F3F4F6;
+    }
+
+    .match-team.winner {
+        color: #10B981;
+        font-weight: 600;
+    }
+
+    .match-team.loser {
+        color: #6B7280;
+    }
+
+    .match-score {
+        font-weight: 700;
+        color: #EAB308;
+    }
+
+    .advance-banner {
+        background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+        padding: 1.5rem;
+        border-radius: 0.75rem;
+        text-align: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .advance-banner h3 {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: white;
+        margin-bottom: 0.5rem;
+    }
+
+    .advance-banner p {
+        color: rgba(255,255,255,0.8);
+        margin-bottom: 1rem;
+    }
+
+    .advance-btn {
+        background: white;
+        color: #059669;
+        padding: 0.75rem 2rem;
+        border-radius: 0.5rem;
+        font-weight: 700;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .advance-btn:hover {
+        transform: scale(1.05);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+
+    .knockout-placeholder {
+        text-align: center;
+        padding: 3rem;
+        color: #6B7280;
+    }
+
+    .knockout-placeholder i {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+</style>
+
+<div id="hybrid-view-container" class="hybrid-container">
+    <div class="stage-tabs">
+        <button class="stage-tab active" id="tab-groups" onclick="window.HybridView.showStage('groups')">
+            Group Stage
+        </button>
+        <button class="stage-tab" id="tab-knockout" onclick="window.HybridView.showStage('knockout')">
+            Knockout Stage
+        </button>
+    </div>
+
+    <div id="stage-groups" class="stage-content active">
+        <div id="groups-content" class="groups-grid">
+            <div class="text-gray-400 text-center">Loading groups...</div>
+        </div>
+    </div>
+
+    <div id="stage-knockout" class="stage-content">
+        <div id="knockout-content">
+            <div class="knockout-placeholder">
+                <div style="font-size: 3rem; opacity: 0.5;">🏆</div>
+                <p>Knockout stage will be generated after group stage completes</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+window.HybridView = {
+    tournamentId: null,
+    stageStatus: null,
+    teamsAdvance: 2,
+
+    async init(tournamentId, teamsAdvance = 2) {
+        this.tournamentId = tournamentId;
+        this.teamsAdvance = teamsAdvance;
+        await this.loadStageStatus();
+        await this.render();
+    },
+
+    async loadStageStatus() {
+        try {
+            const resp = await fetch(`/api/v1/play/${this.tournamentId}/stage-status`);
+            this.stageStatus = await resp.json();
+        } catch (e) {
+            console.error('Error loading stage status:', e);
+        }
+    },
+
+    showStage(stage) {
+        document.querySelectorAll('.stage-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.stage-content').forEach(c => c.classList.remove('active'));
+        
+        document.getElementById(`tab-${stage}`).classList.add('active');
+        document.getElementById(`stage-${stage}`).classList.add('active');
+    },
+
+    async render() {
+        await this.renderGroups();
+        await this.renderKnockout();
+        
+        // Auto-switch to knockout if it's generated
+        if (this.stageStatus?.knockout_stage?.is_generated) {
+            document.getElementById('tab-knockout').classList.remove('disabled');
+        }
+    },
+
+    async renderGroups() {
+        const container = document.getElementById('groups-content');
+        
+        try {
+            const [standingsResp, matchesResp, teamsResp] = await Promise.all([
+                fetch(`/api/v1/play/${this.tournamentId}/group-standings`),
+                fetch(`/api/v1/play/${this.tournamentId}/matches`),
+                fetch(`/api/v1/play/${this.tournamentId}/teams`)
+            ]);
+
+            const groupStandings = await standingsResp.json();
+            const allMatches = await matchesResp.json();
+            const teams = await teamsResp.json();
+
+            const groupNames = Object.keys(groupStandings).sort();
+            
+            if (groupNames.length === 0) {
+                container.innerHTML = '<div class="text-gray-400 text-center w-full">No groups found</div>';
+                return;
+            }
+
+            // Check if group stage is complete
+            const groupMatches = allMatches.filter(m => m.stage === 'group');
+            const allComplete = groupMatches.length > 0 && groupMatches.every(m => m.status === 'completed');
+            const knockoutExists = allMatches.some(m => m.stage === 'knockout');
+
+            let html = '';
+
+            // Show advance banner if groups complete but knockout not generated
+            if (allComplete && !knockoutExists) {
+                html += `
+                    <div class="advance-banner" style="grid-column: 1 / -1;">
+                        <h3>🎉 Group Stage Complete!</h3>
+                        <p>All group matches have been played. Ready to generate the knockout bracket.</p>
+                        <button class="advance-btn" onclick="window.HybridView.advanceToKnockout()">
+                            Generate Knockout Bracket
+                        </button>
+                    </div>
+                `;
+            }
+
+            // Render each group
+            for (const groupName of groupNames) {
+                const standings = groupStandings[groupName];
+                const groupMatchList = groupMatches.filter(m => m.group_name === groupName);
+
+                html += this.createGroupCard(groupName, standings, groupMatchList, teams);
+            }
+
+            container.innerHTML = html;
+
+        } catch (error) {
+            console.error('Error rendering groups:', error);
+            container.innerHTML = '<div class="text-red-500 text-center w-full">Error loading groups</div>';
+        }
+    },
+
+    createGroupCard(groupName, standings, matches, teams) {
+        const standingsRows = standings.map((team, idx) => {
+            const qualifies = idx < this.teamsAdvance;
+            const gd = team.goal_difference;
+            const gdDisplay = gd > 0 ? `+${gd}` : gd;
+            
+            return `
+                <tr class="${qualifies ? 'qualifies' : ''}">
+                    <td>
+                        <div class="team-cell">
+                            <span class="rank-badge ${idx < 2 ? 'rank-' + (idx + 1) : ''}">${idx + 1}</span>
+                            <span>${team.name}</span>
+                        </div>
+                    </td>
+                    <td>${team.played || 0}</td>
+                    <td style="color: #10B981;">${team.wins}</td>
+                    <td style="color: #9CA3AF;">${team.draws || 0}</td>
+                    <td style="color: #EF4444;">${team.losses}</td>
+                    <td>${team.goals_for || 0}</td>
+                    <td>${team.goals_against || 0}</td>
+                    <td style="color: ${gd > 0 ? '#10B981' : gd < 0 ? '#EF4444' : '#9CA3AF'};">${gdDisplay}</td>
+                    <td style="font-weight: 700; color: #10B981;">${team.points || 0}</td>
+                </tr>
+            `;
+        }).join('');
+
+        const matchItems = matches.slice(0, 6).map(m => {
+            const team1 = teams[m.team1] || { name: m.team1 };
+            const team2 = teams[m.team2] || { name: m.team2 };
+            const isComplete = m.status === 'completed';
+            const isDraw = m.is_draw;
+            
+            let team1Class = '', team2Class = '';
+            if (isComplete && !isDraw) {
+                team1Class = m.winner === m.team1 ? 'winner' : 'loser';
+                team2Class = m.winner === m.team2 ? 'winner' : 'loser';
+            }
+
+            return `
+                <div class="match-item ${m.status}" onclick="window.ColumnBracket?.openMatchModal(${JSON.stringify(m).replace(/"/g, '&quot;')}, ${JSON.stringify(teams).replace(/"/g, '&quot;')})">
+                    <div class="match-teams">
+                        <span class="match-team ${team1Class}">${team1.name}</span>
+                        <span class="match-team ${team2Class}">${team2.name}</span>
+                    </div>
+                    <span class="match-score">
+                        ${isComplete ? `${m.team1_score ?? 0} - ${m.team2_score ?? 0}` : 'vs'}
+                    </span>
+                </div>
+            `;
+        }).join('');
+
+        return `
+            <div class="group-card">
+                <div class="group-header">
+                    <span class="group-name">Group ${groupName}</span>
+                    <span style="color: #9CA3AF; font-size: 0.875rem;">Top ${this.teamsAdvance} qualify</span>
+                </div>
+                <table class="standings-table">
+                    <thead>
+                        <tr>
+                            <th>Team</th>
+                            <th>P</th>
+                            <th>W</th>
+                            <th>D</th>
+                            <th>L</th>
+                            <th>GF</th>
+                            <th>GA</th>
+                            <th>GD</th>
+                            <th>Pts</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${standingsRows}
+                    </tbody>
+                </table>
+                <div class="group-matches">
+                    <div class="group-matches-title">Matches</div>
+                    ${matchItems || '<div style="color: #6B7280; font-size: 0.875rem;">No matches yet</div>'}
+                </div>
+            </div>
+        `;
+    },
+
+    async renderKnockout() {
+        const container = document.getElementById('knockout-content');
+        
+        try {
+            const matchesResp = await fetch(`/api/v1/play/${this.tournamentId}/matches`);
+            const allMatches = await matchesResp.json();
+            const knockoutMatches = allMatches.filter(m => m.stage === 'knockout');
+
+            if (knockoutMatches.length === 0) {
+                container.innerHTML = `
+                    <div class="knockout-placeholder">
+                        <div style="font-size: 3rem; opacity: 0.5;">🏆</div>
+                        <p>Knockout stage will be generated after group stage completes</p>
+                    </div>
+                `;
+                document.getElementById('tab-knockout').classList.add('disabled');
+                return;
+            }
+
+            document.getElementById('tab-knockout').classList.remove('disabled');
+
+            // Use existing bracket renderer for knockout
+            container.innerHTML = '<div id="knockout-bracket" class="bracket-container"></div>';
+            
+            // Re-render using ColumnBracket but filtered to knockout only
+            if (window.ColumnBracket) {
+                window.ColumnBracket.containerId = 'knockout-bracket';
+                await window.ColumnBracket.render(this.tournamentId);
+            }
+
+        } catch (error) {
+            console.error('Error rendering knockout:', error);
+        }
+    },
+
+    async advanceToKnockout() {
+        try {
+            const resp = await fetch(`/api/v1/play/${this.tournamentId}/advance-to-knockout`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            const data = await resp.json();
+            
+            if (resp.ok) {
+                if (window.showToast) window.showToast('Knockout bracket generated!', 'success');
+                await this.loadStageStatus();
+                await this.render();
+                this.showStage('knockout');
+            } else {
+                if (window.showToast) window.showToast(data.error || 'Failed to generate knockout', 'error');
+            }
+        } catch (error) {
+            console.error('Error advancing to knockout:', error);
+            if (window.showToast) window.showToast('Error generating knockout bracket', 'error');
+        }
+    }
+};
+</script>

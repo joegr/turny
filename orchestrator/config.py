@@ -2,12 +2,12 @@ import os
 
 
 class Config:
-    SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-prod')
+    SECRET_KEY = os.getenv('SECRET_KEY', 'nano-secret-catholic-rook')
     
     # Database
     DATABASE_URL = os.getenv(
         'DATABASE_URL', 
-        'postgresql://tournament:tournament123@localhost:5432/tournament_db'
+        'postgresql://tournament:nonsense@localhost:5432/tournament_db'
     )
     SQLALCHEMY_DATABASE_URI = DATABASE_URL
     SQLALCHEMY_TRACK_MODIFICATIONS = False
@@ -21,12 +21,21 @@ class DevelopmentConfig(Config):
     DEBUG = True
 
 
+
 class ProductionConfig(Config):
     DEBUG = False
+
+
+class TestingConfig(Config):
+    TESTING = True
+    DEBUG = True
+    SQLALCHEMY_DATABASE_URI = os.getenv('SQLALCHEMY_DATABASE_URI', 'sqlite:///:memory:')
+    WTF_CSRF_ENABLED = False
 
 
 config = {
     'development': DevelopmentConfig,
     'production': ProductionConfig,
+    'testing': TestingConfig,
     'default': DevelopmentConfig
 }

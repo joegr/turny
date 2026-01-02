@@ -21,6 +21,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.orchestrator
+      target: production
     ports:
       - "5000:5000"
     depends_on:
@@ -33,6 +34,38 @@ services:
     volumes:
       - ./orchestrator:/app/orchestrator
       - ./shared:/app/shared
+    networks:
+      - tournament-network
+
+  # Test runner service - run with: docker-compose run test
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile.orchestrator
+      target: test
+    environment:
+      TESTING: "true"
+      SQLALCHEMY_DATABASE_URI: "sqlite:///:memory:"
+    profiles:
+      - test
+    networks:
+      - tournament-network
+
+  # Integration tests with real database
+  test-integration:
+    build:
+      context: .
+      dockerfile: Dockerfile.orchestrator
+      target: test
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      TESTING: "true"
+      DATABASE_URL: "postgresql://tournament:tournament123@postgres:5432/tournament_db"
+    command: python -m pytest tests/integration -v --tb=short
+    profiles:
+      - test
     networks:
       - tournament-network
 

@@ -1,0 +1,627 @@
+<style>
+    .bracket-container {
+        display: flex;
+        flex-direction: row;
+        overflow-x: auto;
+        padding: 2rem;
+        gap: 4rem;
+        min-height: 600px;
+    }
+
+    .bracket-round {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-around;
+        min-width: 280px;
+        flex-shrink: 0;
+    }
+
+    .bracket-round-title {
+        text-align: center;
+        color: #EAB308;
+        font-weight: bold;
+        margin-bottom: 1.5rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .match-card {
+        background-color: #1F2937;
+        border: 1px solid #374151;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        position: relative;
+        transition: all 0.2s;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        margin-bottom: 1rem;
+    }
+
+    .match-card:hover {
+        border-color: #EAB308;
+        transform: translateY(-2px);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    }
+
+    .match-card.completed {
+        border-left: 4px solid #10B981;
+    }
+
+    .match-card.pending {
+        border-left: 4px solid #EAB308;
+    }
+
+    .team-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.5rem 0;
+    }
+
+    .team-name {
+        font-weight: 500;
+        color: #F3F4F6;
+        max-width: 160px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .team-score {
+        font-weight: bold;
+        color: #9CA3AF;
+    }
+
+    .team-winner .team-name {
+        color: #10B981;
+    }
+    
+    .team-loser .team-name {
+        color: #9CA3AF;
+        text-decoration: line-through;
+    }
+
+    .match-info {
+        font-size: 0.75rem;
+        color: #6B7280;
+        margin-bottom: 0.5rem;
+        display: flex;
+        justify-content: space-between;
+    }
+
+    /* Match Detail Modal */
+    .match-modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.2s;
+    }
+
+    .match-modal-overlay.active {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .match-modal {
+        background: #1F2937;
+        border: 1px solid #374151;
+        border-radius: 0.75rem;
+        padding: 1.5rem;
+        width: 90%;
+        max-width: 400px;
+        transform: scale(0.9);
+        transition: transform 0.2s;
+    }
+
+    .match-modal-overlay.active .match-modal {
+        transform: scale(1);
+    }
+
+    .match-modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid #374151;
+    }
+
+    .match-modal-title {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: #EAB308;
+    }
+
+    .match-modal-close {
+        background: none;
+        border: none;
+        color: #9CA3AF;
+        font-size: 1.5rem;
+        cursor: pointer;
+        padding: 0;
+        line-height: 1;
+    }
+
+    .match-modal-close:hover {
+        color: #F3F4F6;
+    }
+
+    .match-modal-teams {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+    }
+
+    .match-modal-team {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem;
+        background: #111827;
+        border: 2px solid #374151;
+        border-radius: 0.5rem;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .match-modal-team:hover {
+        border-color: #EAB308;
+        background: #1a2332;
+    }
+
+    .match-modal-team.selected {
+        border-color: #10B981;
+        background: rgba(16, 185, 129, 0.1);
+    }
+
+    .match-modal-team.winner-display {
+        border-color: #10B981;
+        background: rgba(16, 185, 129, 0.15);
+    }
+
+    .match-modal-team.loser-display {
+        opacity: 0.5;
+        border-color: #374151;
+    }
+
+    .match-modal-team-info {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .match-modal-team-name {
+        font-weight: 600;
+        color: #F3F4F6;
+    }
+
+    .match-modal-team-elo {
+        font-size: 0.75rem;
+        color: #9CA3AF;
+    }
+
+    .match-modal-team-prob {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: #EAB308;
+    }
+
+    .match-modal-vs {
+        text-align: center;
+        color: #6B7280;
+        font-weight: 600;
+        font-size: 0.875rem;
+    }
+
+    .match-modal-actions {
+        display: flex;
+        gap: 0.75rem;
+        margin-top: 1rem;
+    }
+
+    .match-modal-btn {
+        flex: 1;
+        padding: 0.75rem 1rem;
+        border-radius: 0.5rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: none;
+    }
+
+    .match-modal-btn-cancel {
+        background: #374151;
+        color: #F3F4F6;
+    }
+
+    .match-modal-btn-cancel:hover {
+        background: #4B5563;
+    }
+
+    .match-modal-btn-confirm {
+        background: #10B981;
+        color: white;
+    }
+
+    .match-modal-btn-confirm:hover {
+        background: #059669;
+    }
+
+    .match-modal-btn-confirm:disabled {
+        background: #6B7280;
+        cursor: not-allowed;
+    }
+
+    .match-modal-status {
+        text-align: center;
+        padding: 0.5rem;
+        border-radius: 0.375rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+
+    .match-modal-status.completed {
+        background: rgba(16, 185, 129, 0.1);
+        color: #10B981;
+    }
+</style>
+
+<div id="column-bracket-container" class="bracket-container">
+    <div class="text-gray-400 text-center w-full mt-10">Loading bracket...</div>
+</div>
+
+<!-- Match Detail Modal -->
+<div id="match-modal-overlay" class="match-modal-overlay">
+    <div class="match-modal">
+        <div class="match-modal-header">
+            <span class="match-modal-title" id="match-modal-title">Match Details</span>
+            <button class="match-modal-close" onclick="window.ColumnBracket.closeModal()">&times;</button>
+        </div>
+        <div id="match-modal-content"></div>
+    </div>
+</div>
+
+<script>
+window.ColumnBracket = {
+    containerId: 'column-bracket-container',
+    currentMatch: null,
+    currentTeams: null,
+    selectedWinner: null,
+    
+    init(containerId) {
+        if (containerId) this.containerId = containerId;
+        
+        // Close modal on overlay click
+        document.getElementById('match-modal-overlay').addEventListener('click', (e) => {
+            if (e.target.id === 'match-modal-overlay') this.closeModal();
+        });
+        
+        // Close modal on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') this.closeModal();
+        });
+    },
+
+    async render(tournamentId) {
+        try {
+            const container = document.getElementById(this.containerId);
+            if (!container) return;
+
+            const [matchesResp, teamsResp] = await Promise.all([
+                fetch(`/api/v1/play/${tournamentId}/matches`),
+                fetch(`/api/v1/play/${tournamentId}/teams`)
+            ]);
+
+            if (!matchesResp.ok || !teamsResp.ok) throw new Error("Failed to fetch bracket data");
+
+            const matches = await matchesResp.json();
+            const teams = await teamsResp.json();
+            this.currentTeams = teams;
+
+            const rounds = {};
+            matches.forEach(match => {
+                if (!rounds[match.round]) rounds[match.round] = [];
+                rounds[match.round].push(match);
+            });
+
+            container.innerHTML = '';
+
+            const roundNums = Object.keys(rounds).sort((a, b) => parseInt(a) - parseInt(b));
+            
+            if (roundNums.length === 0) {
+                container.innerHTML = '<div class="text-gray-400 text-center w-full mt-10">No matches generated yet. Start the tournament!</div>';
+                return;
+            }
+
+            roundNums.forEach((roundNum, index) => {
+                const roundMatches = rounds[roundNum];
+                roundMatches.sort((a, b) => a.id - b.id);
+
+                const roundCol = document.createElement('div');
+                roundCol.className = 'bracket-round';
+                
+                const title = document.createElement('div');
+                title.className = 'bracket-round-title';
+                title.textContent = this.getRoundName(roundNum, rounds[roundNums[roundNums.length-1]].length === 1 && parseInt(roundNum) === parseInt(roundNums[roundNums.length-1]) ? 1 : roundMatches.length);
+                roundCol.appendChild(title);
+
+                roundMatches.forEach(match => {
+                    const card = this.createMatchCard(match, teams);
+                    roundCol.appendChild(card);
+                });
+
+                container.appendChild(roundCol);
+            });
+
+        } catch (error) {
+            console.error("Error rendering bracket:", error);
+            const container = document.getElementById(this.containerId);
+            if (container) container.innerHTML = '<div class="text-red-500 text-center w-full mt-10">Error loading bracket data</div>';
+        }
+    },
+
+    createMatchCard(match, teams) {
+        const team1 = teams[match.team1] || { name: 'TBD', elo_rating: '-' };
+        const team2 = teams[match.team2] || { name: 'TBD', elo_rating: '-' };
+
+        const card = document.createElement('div');
+        const isCompleted = match.status === 'completed';
+        card.className = `match-card ${isCompleted ? 'completed' : 'pending'} cursor-pointer`;
+        
+        // Click opens match detail modal
+        card.onclick = () => this.openMatchModal(match, teams);
+
+        const winnerId = match.winner;
+
+        const header = document.createElement('div');
+        header.className = 'match-info';
+        header.innerHTML = `
+            <span>${match.id || 'Match'}</span>
+            <span class="${match.team1_win_probability ? 'text-yellow-500' : ''}" title="Win Probabilities">
+                ${match.team1_win_probability ? Math.round(match.team1_win_probability * 100) + '%' : ''}
+            </span>
+        `;
+        card.appendChild(header);
+
+        card.appendChild(this.createTeamRow(team1, winnerId === match.team1, isCompleted && winnerId !== match.team1));
+        
+        const divider = document.createElement('div');
+        divider.className = 'border-t border-gray-700 my-2';
+        card.appendChild(divider);
+
+        card.appendChild(this.createTeamRow(team2, winnerId === match.team2, isCompleted && winnerId !== match.team2));
+
+        return card;
+    },
+
+    createTeamRow(team, isWinner, isLoser) {
+        const row = document.createElement('div');
+        row.className = `team-row ${isWinner ? 'team-winner' : ''} ${isLoser ? 'team-loser' : ''}`;
+        
+        const name = document.createElement('span');
+        name.className = 'team-name';
+        name.textContent = team.name;
+        name.title = team.name;
+
+        const elo = document.createElement('span');
+        elo.className = 'team-score text-xs';
+        elo.textContent = team.elo_rating !== '-' ? `ELO ${team.elo_rating}` : '';
+
+        row.appendChild(name);
+        row.appendChild(elo);
+        return row;
+    },
+
+    openMatchModal(match, teams) {
+        this.currentMatch = match;
+        this.selectedWinner = null;
+        this.isDraw = false;
+        
+        const team1 = teams[match.team1] || { name: 'TBD', elo_rating: 1500 };
+        const team2 = teams[match.team2] || { name: 'TBD', elo_rating: 1500 };
+        const isCompleted = match.status === 'completed';
+        const isGroupStage = match.stage === 'group';
+        
+        document.getElementById('match-modal-title').textContent = match.id || 'Match Details';
+        
+        let content = '';
+        
+        // Score inputs for group stage matches
+        if (isGroupStage && !isCompleted) {
+            content += `
+                <div style="display: flex; align-items: center; justify-content: center; gap: 1rem; margin-bottom: 1rem;">
+                    <div style="text-align: center;">
+                        <div style="font-weight: 600; color: #F3F4F6; margin-bottom: 0.5rem;">${team1.name}</div>
+                        <input type="number" id="team1-score" min="0" value="0" 
+                            style="width: 60px; text-align: center; padding: 0.5rem; background: #111827; border: 1px solid #374151; border-radius: 0.375rem; color: white; font-size: 1.25rem;"
+                            onchange="window.ColumnBracket.updateScoreSelection()">
+                    </div>
+                    <span style="color: #6B7280; font-weight: 600;">-</span>
+                    <div style="text-align: center;">
+                        <div style="font-weight: 600; color: #F3F4F6; margin-bottom: 0.5rem;">${team2.name}</div>
+                        <input type="number" id="team2-score" min="0" value="0" 
+                            style="width: 60px; text-align: center; padding: 0.5rem; background: #111827; border: 1px solid #374151; border-radius: 0.375rem; color: white; font-size: 1.25rem;"
+                            onchange="window.ColumnBracket.updateScoreSelection()">
+                    </div>
+                </div>
+                <p style="text-align: center; color: #9CA3AF; font-size: 0.75rem; margin-bottom: 1rem;">
+                    Enter scores - draws are allowed in group stage
+                </p>
+            `;
+        }
+        
+        content += '<div class="match-modal-teams">';
+        
+        if (isCompleted) {
+            const isTeam1Winner = match.winner === match.team1;
+            const isDraw = match.is_draw;
+            content += `
+                <div class="match-modal-team ${isDraw ? '' : (isTeam1Winner ? 'winner-display' : 'loser-display')}">
+                    <div class="match-modal-team-info">
+                        <span class="match-modal-team-name">${team1.name} ${!isDraw && isTeam1Winner ? '🏆' : ''}</span>
+                        <span class="match-modal-team-elo">ELO: ${team1.elo_rating}</span>
+                    </div>
+                    <span style="font-size: 1.25rem; font-weight: bold;">${match.team1_score ?? '-'}</span>
+                </div>
+                <div class="match-modal-vs">${isDraw ? 'DRAW' : 'VS'}</div>
+                <div class="match-modal-team ${isDraw ? '' : (!isTeam1Winner ? 'winner-display' : 'loser-display')}">
+                    <div class="match-modal-team-info">
+                        <span class="match-modal-team-name">${team2.name} ${!isDraw && !isTeam1Winner ? '🏆' : ''}</span>
+                        <span class="match-modal-team-elo">ELO: ${team2.elo_rating}</span>
+                    </div>
+                    <span style="font-size: 1.25rem; font-weight: bold;">${match.team2_score ?? '-'}</span>
+                </div>
+            `;
+            content += '</div>';
+            content += `<div class="match-modal-status completed">${isDraw ? 'Match Drawn' : 'Match Completed'}</div>`;
+        } else if (!isGroupStage) {
+            // Knockout: just select winner
+            content += `
+                <div class="match-modal-team" id="modal-team1" onclick="window.ColumnBracket.selectWinner('${match.team1}')">
+                    <div class="match-modal-team-info">
+                        <span class="match-modal-team-name">${team1.name}</span>
+                        <span class="match-modal-team-elo">ELO: ${team1.elo_rating}</span>
+                    </div>
+                    ${match.team1_win_probability ? `<span class="match-modal-team-prob">${Math.round(match.team1_win_probability * 100)}%</span>` : ''}
+                </div>
+                <div class="match-modal-vs">VS</div>
+                <div class="match-modal-team" id="modal-team2" onclick="window.ColumnBracket.selectWinner('${match.team2}')">
+                    <div class="match-modal-team-info">
+                        <span class="match-modal-team-name">${team2.name}</span>
+                        <span class="match-modal-team-elo">ELO: ${team2.elo_rating}</span>
+                    </div>
+                    ${match.team2_win_probability ? `<span class="match-modal-team-prob">${Math.round(match.team2_win_probability * 100)}%</span>` : ''}
+                </div>
+            `;
+            content += '</div>';
+            content += `
+                <p style="text-align: center; color: #9CA3AF; font-size: 0.875rem; margin-bottom: 0.5rem;">
+                    Click on a team to select the winner
+                </p>
+            `;
+        } else {
+            content += '</div>';
+        }
+        
+        if (!isCompleted) {
+            content += `
+                <div class="match-modal-actions">
+                    <button class="match-modal-btn match-modal-btn-cancel" onclick="window.ColumnBracket.closeModal()">Cancel</button>
+                    <button class="match-modal-btn match-modal-btn-confirm" id="confirm-winner-btn" onclick="window.ColumnBracket.confirmWinner()" ${isGroupStage ? '' : 'disabled'}>
+                        Record Result
+                    </button>
+                </div>
+            `;
+        }
+        
+        document.getElementById('match-modal-content').innerHTML = content;
+        document.getElementById('match-modal-overlay').classList.add('active');
+    },
+    
+    updateScoreSelection() {
+        const score1 = parseInt(document.getElementById('team1-score')?.value || 0);
+        const score2 = parseInt(document.getElementById('team2-score')?.value || 0);
+        
+        if (score1 > score2) {
+            this.selectedWinner = this.currentMatch.team1;
+            this.isDraw = false;
+        } else if (score2 > score1) {
+            this.selectedWinner = this.currentMatch.team2;
+            this.isDraw = false;
+        } else {
+            this.selectedWinner = null;
+            this.isDraw = true;
+        }
+    },
+    
+    selectWinner(teamId) {
+        this.selectedWinner = teamId;
+        
+        // Update visual selection
+        document.getElementById('modal-team1').classList.remove('selected');
+        document.getElementById('modal-team2').classList.remove('selected');
+        
+        if (teamId === this.currentMatch.team1) {
+            document.getElementById('modal-team1').classList.add('selected');
+        } else {
+            document.getElementById('modal-team2').classList.add('selected');
+        }
+        
+        // Enable confirm button
+        document.getElementById('confirm-winner-btn').disabled = false;
+    },
+    
+    async confirmWinner() {
+        if (!this.selectedWinner && !this.isDraw) return;
+        if (!this.currentMatch) return;
+        
+        const btn = document.getElementById('confirm-winner-btn');
+        btn.disabled = true;
+        btn.textContent = 'Recording...';
+        
+        // Build request body
+        const body = {};
+        
+        if (this.isDraw) {
+            body.is_draw = true;
+        } else {
+            body.winner = this.selectedWinner;
+        }
+        
+        // Add scores if available (group stage matches)
+        const score1El = document.getElementById('team1-score');
+        const score2El = document.getElementById('team2-score');
+        if (score1El && score2El) {
+            body.team1_score = parseInt(score1El.value) || 0;
+            body.team2_score = parseInt(score2El.value) || 0;
+        }
+        
+        try {
+            const response = await fetch(`/api/v1/play/${window.currentTournamentId}/matches/${this.currentMatch.id}/result`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            
+            if (response.ok) {
+                this.closeModal();
+                // Re-render bracket
+                this.render(window.currentTournamentId);
+                // Show success toast if available
+                if (window.showToast) window.showToast('Result recorded!', 'success');
+            } else {
+                const data = await response.json();
+                alert(data.error || 'Failed to record result');
+                btn.disabled = false;
+                btn.textContent = 'Record Result';
+            }
+        } catch (error) {
+            console.error('Error recording result:', error);
+            alert('Error recording result');
+            btn.disabled = false;
+            btn.textContent = 'Record Result';
+        }
+    },
+    
+    closeModal() {
+        document.getElementById('match-modal-overlay').classList.remove('active');
+        this.currentMatch = null;
+        this.selectedWinner = null;
+    },
+
+    getRoundName(roundNum, matchCount) {
+        if (matchCount === 1) return 'Finals';
+        if (matchCount === 2) return 'Semifinals';
+        if (matchCount === 4) return 'Quarterfinals';
+        return `Round ${roundNum}`;
+    }
+};
+</script>
