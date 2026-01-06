@@ -12,7 +12,9 @@ RUN pip install --no-cache-dir gunicorn
 
 COPY orchestrator/ ./orchestrator/
 COPY shared/ ./shared/
+COPY migrations/ ./migrations/
 COPY run.py .
+COPY manage_db.py .
 
 ENV FLASK_ENV=production
 ENV PORT=8080

@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, Response, redirect, url_for, session
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from flask_migrate import Migrate
 
 from .config import config
 from .models import db, Tournament, Team, User
@@ -10,6 +11,7 @@ from .tournament_registry import TournamentRegistry
 from .subscription_manager import SubscriptionManager
 
 login_manager = LoginManager()
+migrate = Migrate()
 
 
 def create_app(config_name: str = None) -> Flask:
@@ -24,6 +26,7 @@ def create_app(config_name: str = None) -> Flask:
     
     # Initialize extensions
     db.init_app(app)
+    migrate.init_app(app, db)
     login_manager.init_app(app)
     login_manager.login_view = None  # We use modal, not redirect
     

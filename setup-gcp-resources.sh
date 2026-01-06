@@ -25,6 +25,7 @@ gcloud services enable \
     cloudbuild.googleapis.com \
     artifactregistry.googleapis.com \
     sqladmin.googleapis.com \
+    secretmanager.googleapis.com \
     compute.googleapis.com \
     --project=$PROJECT_ID
 
@@ -92,6 +93,15 @@ else
     echo "✓ User 'tournament' created"
 fi
 
+# Create secret for DB password
+echo "Creating secret for DB password..."
+if gcloud secrets describe tournament-db-pass --project=$PROJECT_ID 2>/dev/null; then
+    echo "✓ Secret 'tournament-db-pass' already exists"
+else
+    printf "tournament123" | gcloud secrets create tournament-db-pass --data-file=- --project=$PROJECT_ID
+    echo "✓ Secret 'tournament-db-pass' created"
+fi
+
 CONNECTION_NAME=$(gcloud sql instances describe tournament-db --project=$PROJECT_ID --format="value(connectionName)")
 echo "Connection Name: $CONNECTION_NAME"
 echo ""
@@ -125,6 +135,31 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
     --member="serviceAccount:$SA_EMAIL" \
     --role="roles/artifactregistry.reader" >/dev/null
 
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+    --member="serviceAccount:$SA_EMAIL" \
+    --role="roles/secretmanager.secretAccessor" >/dev/null
+
+# Grant Cloud Build service account access to secrets and Cloud SQL
+PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID --format="value(projectNumber)")
+CLOUDBUILD_SA="$PROJECT_NUMBER@cloudbuild.gserviceaccount.com"
+
+echo "Granting Cloud Build service account permissions..."
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+    --member="serviceAccount:$CLOUDBUILD_SA" \
+    --role="roles/secretmanager.secretAccessor" >/dev/null
+
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+    --member="serviceAccount:$CLOUDBUILD_SA" \
+    --role="roles/cloudsql.client" >/dev/null
+
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+    --member="serviceAccount:$CLOUDBUILD_SA" \
+    --role="roles/run.admin" >/dev/null
+
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+    --member="serviceAccount:$CLOUDBUILD_SA" \
+    --role="roles/iam.serviceAccountUser" >/dev/null
+
 echo "✓ Roles granted"
 echo ""
 
@@ -137,8 +172,7 @@ echo "Resources created:"
 echo "1. Artifact Registry: tournament-repo"
 echo "2. Cloud SQL: tournament-db (Connection: $CONNECTION_NAME)"
 echo "3. Service Account: $SA_EMAIL"
+echo "4. Secret: tournament-db-pass (in Secret Manager)"
 echo ""
-echo "DATABASE_URL for Cloud Run:"
-echo "postgresql://tournament:tournament123@/tournament_db?host=/cloudsql/$CONNECTION_NAME"
-echo ""
-echo "You can now run deploy-cloudrun.sh to deploy the application."
+echo "Cloud Build will use Secret Manager for DB_PASS."
+echo "You can now run: git push to trigger Cloud Build deployment."
