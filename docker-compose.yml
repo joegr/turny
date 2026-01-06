@@ -22,8 +22,8 @@ services:
       context: .
       dockerfile: Dockerfile.orchestrator
       target: production
-    expose:
-      - "5000"
+    ports:
+      - "5000:5000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -32,22 +32,6 @@ services:
     volumes:
       - ./orchestrator:/app/orchestrator
       - ./shared:/app/shared
-    networks:
-      - tournament-network
-
-  caddy:
-    image: caddy:2-alpine
-    ports:
-      - "443:443"
-      - "80:80"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
-      - caddy_config:/config
-    env_file:
-      - .env.local
-    depends_on:
-      - orchestrator
     networks:
       - tournament-network
 
@@ -89,5 +73,3 @@ networks:
 
 volumes:
   postgres_data:
-  caddy_data:
-  caddy_config:

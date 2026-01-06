@@ -1,6 +1,5 @@
 {
     # Global options
-    auto_https off
     local_certs
 }
 
@@ -11,6 +10,12 @@ localhost, 127.0.0.1 {
     reverse_proxy orchestrator:5000 {
         header_up X-Forwarded-Proto {scheme}
         header_up X-Real-IP {remote_host}
+    }
+    
+    # Enable logging for debugging
+    log {
+        output stdout
+        level INFO
     }
 }
 

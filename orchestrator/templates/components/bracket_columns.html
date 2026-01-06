@@ -406,10 +406,12 @@ window.ColumnBracket = {
         const row = document.createElement('div');
         row.className = `team-row ${isWinner ? 'team-winner' : ''} ${isLoser ? 'team-loser' : ''}`;
         
-        const name = document.createElement('span');
-        name.className = 'team-name';
+        const name = document.createElement('a');
+        name.className = 'team-name hover:text-yellow-400 transition-colors';
         name.textContent = team.name;
         name.title = team.name;
+        name.href = team.team_id ? `/tournaments/${window.currentTournamentId}/teams/${team.team_id}` : '#';
+        name.onclick = (e) => e.stopPropagation(); // Prevent modal from opening when clicking team link
 
         const elo = document.createElement('span');
         elo.className = 'team-score text-xs';
@@ -463,10 +465,12 @@ window.ColumnBracket = {
         if (isCompleted) {
             const isTeam1Winner = match.winner === match.team1;
             const isDraw = match.is_draw;
+            const team1Link = match.team1 ? `/tournaments/${window.currentTournamentId}/teams/${match.team1}` : '#';
+            const team2Link = match.team2 ? `/tournaments/${window.currentTournamentId}/teams/${match.team2}` : '#';
             content += `
                 <div class="match-modal-team ${isDraw ? '' : (isTeam1Winner ? 'winner-display' : 'loser-display')}">
                     <div class="match-modal-team-info">
-                        <span class="match-modal-team-name">${team1.name} ${!isDraw && isTeam1Winner ? '🏆' : ''}</span>
+                        <a href="${team1Link}" class="match-modal-team-name hover:text-yellow-400 transition-colors">${team1.name} ${!isDraw && isTeam1Winner ? '🏆' : ''}</a>
                         <span class="match-modal-team-elo">ELO: ${team1.elo_rating}</span>
                     </div>
                     <span style="font-size: 1.25rem; font-weight: bold;">${match.team1_score ?? '-'}</span>
@@ -474,7 +478,7 @@ window.ColumnBracket = {
                 <div class="match-modal-vs">${isDraw ? 'DRAW' : 'VS'}</div>
                 <div class="match-modal-team ${isDraw ? '' : (!isTeam1Winner ? 'winner-display' : 'loser-display')}">
                     <div class="match-modal-team-info">
-                        <span class="match-modal-team-name">${team2.name} ${!isDraw && !isTeam1Winner ? '🏆' : ''}</span>
+                        <a href="${team2Link}" class="match-modal-team-name hover:text-yellow-400 transition-colors">${team2.name} ${!isDraw && !isTeam1Winner ? '🏆' : ''}</a>
                         <span class="match-modal-team-elo">ELO: ${team2.elo_rating}</span>
                     </div>
                     <span style="font-size: 1.25rem; font-weight: bold;">${match.team2_score ?? '-'}</span>
@@ -483,30 +487,32 @@ window.ColumnBracket = {
             content += '</div>';
             content += `<div class="match-modal-status completed">${isDraw ? 'Match Drawn' : 'Match Completed'}</div>`;
         } else if (!isGroupStage) {
-            // Knockout: just select winner
+            // Knockout: score inputs + winner selection
+            const team1Link = match.team1 ? `/tournaments/${window.currentTournamentId}/teams/${match.team1}` : '#';
+            const team2Link = match.team2 ? `/tournaments/${window.currentTournamentId}/teams/${match.team2}` : '#';
             content += `
-                <div class="match-modal-team" id="modal-team1" onclick="window.ColumnBracket.selectWinner('${match.team1}')">
-                    <div class="match-modal-team-info">
-                        <span class="match-modal-team-name">${team1.name}</span>
-                        <span class="match-modal-team-elo">ELO: ${team1.elo_rating}</span>
+                <div style="display: flex; align-items: center; justify-content: center; gap: 1rem; margin-bottom: 1rem;">
+                    <div style="text-align: center;">
+                        <a href="${team1Link}" style="font-weight: 600; color: #F3F4F6; margin-bottom: 0.5rem; display: block;" class="hover:text-yellow-400 transition-colors" onclick="event.stopPropagation()">${team1.name}</a>
+                        <input type="number" id="team1-score" min="0" value="0" 
+                            style="width: 60px; text-align: center; padding: 0.5rem; background: #111827; border: 1px solid #374151; border-radius: 0.375rem; color: white; font-size: 1.25rem;"
+                            onchange="window.ColumnBracket.updateKnockoutScoreSelection()">
+                        <div style="font-size: 0.75rem; color: #9CA3AF; margin-top: 0.25rem;">ELO: ${team1.elo_rating}</div>
                     </div>
-                    ${match.team1_win_probability ? `<span class="match-modal-team-prob">${Math.round(match.team1_win_probability * 100)}%</span>` : ''}
-                </div>
-                <div class="match-modal-vs">VS</div>
-                <div class="match-modal-team" id="modal-team2" onclick="window.ColumnBracket.selectWinner('${match.team2}')">
-                    <div class="match-modal-team-info">
-                        <span class="match-modal-team-name">${team2.name}</span>
-                        <span class="match-modal-team-elo">ELO: ${team2.elo_rating}</span>
+                    <span style="color: #6B7280; font-weight: 600;">-</span>
+                    <div style="text-align: center;">
+                        <a href="${team2Link}" style="font-weight: 600; color: #F3F4F6; margin-bottom: 0.5rem; display: block;" class="hover:text-yellow-400 transition-colors" onclick="event.stopPropagation()">${team2.name}</a>
+                        <input type="number" id="team2-score" min="0" value="0" 
+                            style="width: 60px; text-align: center; padding: 0.5rem; background: #111827; border: 1px solid #374151; border-radius: 0.375rem; color: white; font-size: 1.25rem;"
+                            onchange="window.ColumnBracket.updateKnockoutScoreSelection()">
+                        <div style="font-size: 0.75rem; color: #9CA3AF; margin-top: 0.25rem;">ELO: ${team2.elo_rating}</div>
                     </div>
-                    ${match.team2_win_probability ? `<span class="match-modal-team-prob">${Math.round(match.team2_win_probability * 100)}%</span>` : ''}
                 </div>
-            `;
-            content += '</div>';
-            content += `
-                <p style="text-align: center; color: #9CA3AF; font-size: 0.875rem; margin-bottom: 0.5rem;">
-                    Click on a team to select the winner
+                <p style="text-align: center; color: #9CA3AF; font-size: 0.75rem; margin-bottom: 0.5rem;">
+                    Enter scores - higher score wins (no draws in knockout)
                 </p>
             `;
+            content += '</div>';
         } else {
             content += '</div>';
         }
@@ -539,6 +545,28 @@ window.ColumnBracket = {
         } else {
             this.selectedWinner = null;
             this.isDraw = true;
+        }
+    },
+    
+    updateKnockoutScoreSelection() {
+        const score1 = parseInt(document.getElementById('team1-score')?.value || 0);
+        const score2 = parseInt(document.getElementById('team2-score')?.value || 0);
+        const btn = document.getElementById('confirm-winner-btn');
+        
+        // In knockout, no draws allowed - must have a clear winner
+        if (score1 > score2) {
+            this.selectedWinner = this.currentMatch.team1;
+            this.isDraw = false;
+            if (btn) btn.disabled = false;
+        } else if (score2 > score1) {
+            this.selectedWinner = this.currentMatch.team2;
+            this.isDraw = false;
+            if (btn) btn.disabled = false;
+        } else {
+            // Tied scores - can't submit in knockout
+            this.selectedWinner = null;
+            this.isDraw = false;
+            if (btn) btn.disabled = true;
         }
     },
     

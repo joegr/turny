@@ -135,13 +135,14 @@ window.GroupStandings = {
             const qualifies = idx < this.teamsAdvance;
             const gdClass = team.goal_difference > 0 ? 'gd-positive' : team.goal_difference < 0 ? 'gd-negative' : 'gd-zero';
             const gdDisplay = team.goal_difference > 0 ? `+${team.goal_difference}` : team.goal_difference;
+            const teamLink = `/tournaments/${window.currentTournamentId}/teams/${team.team_id}`;
             
             return `
-                <tr class="${qualifies ? 'qualifies' : ''}">
+                <tr class="${qualifies ? 'qualifies' : ''} hover:bg-gray-700/30 cursor-pointer" onclick="location.href='${teamLink}'">
                     <td>
                         <div class="team-name-cell">
                             <span class="team-rank ${idx < 3 ? 'rank-' + (idx + 1) : ''}">${idx + 1}</span>
-                            <span class="font-medium text-white">${team.name}</span>
+                            <a href="${teamLink}" class="font-medium text-white hover:text-yellow-400 transition-colors" onclick="event.stopPropagation()">${team.name}</a>
                         </div>
                     </td>
                     <td>${team.played || 0}</td>

@@ -1,11 +1,15 @@
 import os
-from flask import Flask, render_template, request, jsonify, Response, redirect, url_for
-from werkzeug.middleware.proxy_fix import ProxyFix
+import uuid
+from datetime import datetime
+from flask import Flask, render_template, request, jsonify, Response, redirect, url_for, session
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 
 from .config import config
-from .models import db, Tournament, Team
+from .models import db, Tournament, Team, User
 from .tournament_registry import TournamentRegistry
 from .subscription_manager import SubscriptionManager
+
+login_manager = LoginManager()
 
 
 def create_app(config_name: str = None) -> Flask:
@@ -18,17 +22,10 @@ def create_app(config_name: str = None) -> Flask:
                 static_folder='static')
     app.config.from_object(config[config_name])
     
-    # Handle reverse proxy headers (for HTTPS behind Caddy)
-    app.wsgi_app = ProxyFix(
-        app.wsgi_app,
-        x_for=1,
-        x_proto=1,
-        x_host=1,
-        x_prefix=0
-    )
-    
     # Initialize extensions
     db.init_app(app)
+    login_manager.init_app(app)
+    login_manager.login_view = None  # We use modal, not redirect
     
     # Initialize services
     registry = TournamentRegistry()
@@ -45,12 +42,22 @@ def create_app(config_name: str = None) -> Flask:
     # Register routes
     register_routes(app)
     register_api_routes(app)
+    register_auth_routes(app)
     
     # Register Play Blueprint (Monolith Mode)
     from .routes import play
     app.register_blueprint(play.bp)
     
     return app
+
+
+@login_manager.user_loader
+def load_user(user_id):
+    """Load user by their database ID."""
+    try:
+        return User.query.get(int(user_id))
+    except (ValueError, TypeError):
+        return None
 
 
 def register_routes(app: Flask):
@@ -145,7 +152,14 @@ def register_api_routes(app: Flask):
     
     @app.route('/api/v1/tournaments', methods=['POST'])
     def api_create_tournament():
-        """Create a new tournament."""
+        """Create a new tournament. Admin only."""
+        # Check if user is authenticated and is admin
+        if not current_user.is_authenticated:
+            return jsonify({'error': 'Authentication required'}), 401
+        
+        if not current_user.is_admin:
+            return jsonify({'error': 'Admin access required to create tournaments'}), 403
+        
         data = request.json or {}
         
         name = data.get('name')
@@ -225,39 +239,11 @@ def register_api_routes(app: Flask):
     
     @app.route('/api/v1/tournaments/<tournament_id>/teams', methods=['POST'])
     def api_register_team(tournament_id: str):
-        """Register a team for a tournament."""
-        tournament = app.registry.get_tournament(tournament_id)
-        if not tournament:
-            return jsonify({'error': 'Tournament not found'}), 404
-        
-        if tournament.status != 'registration':
-            return jsonify({'error': f'Cannot register teams in {tournament.status} state'}), 400
-        
-        if len(tournament.teams) >= tournament.max_teams:
-            return jsonify({'error': 'Tournament is full'}), 400
-        
-        data = request.json or {}
-        name = data.get('name')
-        captain = data.get('captain')
-        
-        if not name or not captain:
-            return jsonify({'error': 'Team name and captain are required'}), 400
-        
-        team_id = data.get('team_id') or f"team_{len(tournament.teams) + 1}"
-        
-        team = Team(
-            team_id=team_id,
-            tournament_id=tournament.id,
-            name=name,
-            captain=captain
-        )
-        db.session.add(team)
-        db.session.commit()
-        
-        return jsonify({
-            'message': 'Team registered',
-            'team': team.to_dict()
-        }), 201
+        """Register a team for a tournament. Redirects to play API."""
+        # Consolidated to /api/v1/play/<tournament_id>/teams
+        # This endpoint kept for backwards compatibility but forwards to play blueprint
+        from flask import redirect, url_for
+        return redirect(url_for('play.register_team', tournament_id=tournament_id), code=307)
     
     # ==================== Subscriptions ====================
     
@@ -333,3 +319,207 @@ def register_api_routes(app: Flask):
             },
             'timestamp': time.time()
         }), code
+
+
+def register_auth_routes(app: Flask):
+    """Register authentication routes."""
+    
+    from datetime import timedelta
+    
+    @app.route('/api/v1/auth/login', methods=['POST'])
+    def auth_login():
+        """Login with username only - creates session."""
+        # Always logout any existing session first
+        logout_user()
+        
+        data = request.json or {}
+        username = data.get('username', '').strip()
+        
+        if not username:
+            return jsonify({'error': 'Username is required'}), 400
+        
+        if len(username) < 2 or len(username) > 50:
+            return jsonify({'error': 'Username must be 2-50 characters'}), 400
+        
+        # Generate unique session ID
+        session_id = str(uuid.uuid4())
+        
+        # Create user with encrypted username
+        user = User.create_user(username=username, session_id=session_id)
+        db.session.add(user)
+        db.session.commit()
+        
+        # Log in the user (regular users get default session duration)
+        login_user(user, remember=True)
+        
+        return jsonify({
+            'message': 'Logged in successfully',
+            'user': user.to_dict()
+        })
+    
+    @app.route('/api/v1/auth/admin-register', methods=['POST'])
+    def auth_admin_register():
+        """Register a new admin with username and password."""
+        # Always logout any existing session first
+        logout_user()
+        
+        data = request.json or {}
+        username = data.get('username', '').strip()
+        password = data.get('password', '')
+        
+        if not username or not password:
+            return jsonify({'error': 'Username and password are required'}), 400
+        
+        if len(username) < 2 or len(username) > 50:
+            return jsonify({'error': 'Username must be 2-50 characters'}), 400
+        
+        if len(password) < 6:
+            return jsonify({'error': 'Password must be at least 6 characters'}), 400
+        
+        # Check if admin with this username already exists
+        existing = User.find_admin_by_username(username)
+        if existing:
+            return jsonify({'error': 'Admin username already exists'}), 400
+        
+        # Generate unique session ID
+        session_id = str(uuid.uuid4())
+        
+        # Create admin user with encrypted username and password
+        user = User.create_user(username=username, session_id=session_id, is_admin=True, password=password)
+        db.session.add(user)
+        db.session.commit()
+        
+        # Log in with 7-day remember duration
+        login_user(user, remember=True, duration=timedelta(days=7))
+        
+        return jsonify({
+            'message': 'Admin registered successfully',
+            'user': user.to_dict()
+        })
+    
+    @app.route('/api/v1/auth/admin-login', methods=['POST'])
+    def auth_admin_login():
+        """Admin login with username and password - 7 day session."""
+        # Always logout any existing session first
+        logout_user()
+        
+        data = request.json or {}
+        username = data.get('username', '').strip()
+        password = data.get('password', '')
+        
+        if not username or not password:
+            return jsonify({'error': 'Username and password are required'}), 400
+        
+        # Find existing admin by username
+        admin = User.find_admin_by_username(username)
+        if not admin:
+            return jsonify({'error': 'Invalid credentials'}), 401
+        
+        if not admin.check_password(password):
+            return jsonify({'error': 'Invalid credentials'}), 401
+        
+        # Update session ID for new login
+        admin.session_id = str(uuid.uuid4())
+        admin.last_seen = datetime.utcnow()
+        db.session.commit()
+        
+        # Log in with 7-day remember duration
+        login_user(admin, remember=True, duration=timedelta(days=7))
+        
+        return jsonify({
+            'message': 'Admin logged in successfully',
+            'user': admin.to_dict()
+        })
+    
+    @app.route('/api/v1/auth/logout', methods=['POST'])
+    def auth_logout():
+        """Logout current user."""
+        logout_user()
+        return jsonify({'message': 'Logged out successfully'})
+    
+    @app.route('/api/v1/auth/me', methods=['GET'])
+    def auth_me():
+        """Get current user info."""
+        if current_user.is_authenticated:
+            return jsonify({
+                'authenticated': True,
+                'user': current_user.to_dict()
+            })
+        return jsonify({
+            'authenticated': False,
+            'user': None
+        })
+    
+    @app.route('/api/v1/auth/update-display-name', methods=['POST'])
+    def auth_update_display_name():
+        """Update user's public display name."""
+        if not current_user.is_authenticated:
+            return jsonify({'error': 'Not authenticated'}), 401
+        
+        data = request.json or {}
+        display_name = data.get('display_name', '').strip()
+        
+        if not display_name:
+            return jsonify({'error': 'Display name is required'}), 400
+        
+        if len(display_name) < 2 or len(display_name) > 50:
+            return jsonify({'error': 'Display name must be 2-50 characters'}), 400
+        
+        current_user.display_name = display_name
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Display name updated',
+            'user': current_user.to_dict()
+        })
+    
+    @app.route('/api/v1/auth/reveal-captain/<tournament_id>/<match_id>', methods=['GET'])
+    def reveal_opponent_captain(tournament_id, match_id):
+        """
+        Reveal the opponent captain's encrypted username.
+        Only works if the current user is a captain in this match.
+        """
+        if not current_user.is_authenticated:
+            return jsonify({'error': 'Authentication required'}), 401
+        
+        from .models import Tournament, Team, Match
+        
+        t = Tournament.query.filter_by(tournament_id=tournament_id).first()
+        if not t:
+            return jsonify({'error': 'Tournament not found'}), 404
+        
+        match = Match.query.filter_by(tournament_id=t.id, match_id=match_id).first()
+        if not match:
+            return jsonify({'error': 'Match not found'}), 404
+        
+        # Find teams in this match
+        team1 = Team.query.filter_by(tournament_id=t.id, team_id=match.team1_id).first()
+        team2 = Team.query.filter_by(tournament_id=t.id, team_id=match.team2_id).first()
+        
+        # Check if current user is captain of one of the teams
+        user_team = None
+        opponent_team = None
+        
+        if team1 and team1.captain_user_id == current_user.id:
+            user_team = team1
+            opponent_team = team2
+        elif team2 and team2.captain_user_id == current_user.id:
+            user_team = team2
+            opponent_team = team1
+        
+        if not user_team:
+            return jsonify({'error': 'You are not a captain in this match'}), 403
+        
+        if not opponent_team or not opponent_team.captain_user:
+            return jsonify({
+                'opponent_team': opponent_team.name if opponent_team else None,
+                'captain_username': None,
+                'message': 'Opponent captain not registered'
+            })
+        
+        # Reveal the opponent captain's encrypted username
+        return jsonify({
+            'opponent_team': opponent_team.name,
+            'captain_username': opponent_team.captain_user.username,  # Decrypted
+            'captain_display_name': opponent_team.captain_user.display_name
+        })

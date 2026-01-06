@@ -1,7 +1,92 @@
 from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
+from flask_login import UserMixin
+from cryptography.fernet import Fernet
+from werkzeug.security import generate_password_hash, check_password_hash
+import os
+import base64
+import hashlib
 
 db = SQLAlchemy()
+
+def get_encryption_key():
+    """Get or generate encryption key from SECRET_KEY."""
+    secret = os.getenv('SECRET_KEY', 'nano-secret-catholic-rook')
+    key = hashlib.sha256(secret.encode()).digest()
+    return base64.urlsafe_b64encode(key)
+
+def encrypt_username(username: str) -> str:
+    """Encrypt username for storage."""
+    f = Fernet(get_encryption_key())
+    return f.encrypt(username.encode()).decode()
+
+def decrypt_username(encrypted: str) -> str:
+    """Decrypt username for display to opponent."""
+    f = Fernet(get_encryption_key())
+    return f.decrypt(encrypted.encode()).decode()
+
+
+class User(UserMixin, db.Model):
+    __tablename__ = 'users'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.String(100), unique=True, nullable=False, index=True)
+    username_encrypted = db.Column(db.String(500), nullable=False)
+    display_name = db.Column(db.String(100), nullable=True)  # Optional public display name
+    is_admin = db.Column(db.Boolean, default=False)  # Admin users can create tournaments
+    password_hash = db.Column(db.String(256), nullable=True)  # Only for admins
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_seen = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def get_id(self):
+        """Return the user ID for Flask-Login session management."""
+        return str(self.id)
+    
+    @property
+    def username(self) -> str:
+        """Decrypt and return the real username (only for captain reveal)."""
+        return decrypt_username(self.username_encrypted)
+    
+    def set_password(self, password: str):
+        """Set password hash for admin users."""
+        self.password_hash = generate_password_hash(password)
+    
+    def check_password(self, password: str) -> bool:
+        """Verify password for admin users."""
+        if not self.password_hash:
+            return False
+        return check_password_hash(self.password_hash, password)
+    
+    @staticmethod
+    def create_user(username: str, session_id: str, is_admin: bool = False, password: str = None) -> 'User':
+        """Create a new user with encrypted username."""
+        user = User(
+            session_id=session_id,
+            username_encrypted=encrypt_username(username),
+            display_name=f"Admin_{session_id[:6]}" if is_admin else f"Player_{session_id[:6]}",
+            is_admin=is_admin
+        )
+        if password and is_admin:
+            user.set_password(password)
+        return user
+    
+    @staticmethod
+    def find_admin_by_username(username: str) -> 'User':
+        """Find an admin user by their decrypted username."""
+        admins = User.query.filter_by(is_admin=True).all()
+        for admin in admins:
+            if admin.username == username:
+                return admin
+        return None
+    
+    def to_dict(self, reveal_username: bool = False):
+        return {
+            'id': self.id,
+            'display_name': self.display_name,
+            'username': self.username if reveal_username else None,
+            'is_admin': self.is_admin,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
 
 
 class Tournament(db.Model):
@@ -84,7 +169,8 @@ class Team(db.Model):
     team_id = db.Column(db.String(50), nullable=False, index=True)
     tournament_id = db.Column(db.Integer, db.ForeignKey('tournaments.id'), nullable=False)
     name = db.Column(db.String(100), nullable=False)
-    captain = db.Column(db.String(100), nullable=False)
+    captain = db.Column(db.String(100), nullable=False)  # Public display name for captain
+    captain_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)  # Link to User
     group_name = db.Column(db.String(50), nullable=True)  # e.g., 'A', 'B', 'C', 'D'
     wins = db.Column(db.Integer, default=0)
     losses = db.Column(db.Integer, default=0)
@@ -98,6 +184,7 @@ class Team(db.Model):
     
     tournament = db.relationship('Tournament', back_populates='teams')
     elo_history = db.relationship('EloHistory', back_populates='team', cascade='all, delete-orphan')
+    captain_user = db.relationship('User', backref='teams')
     
     __table_args__ = (
         db.UniqueConstraint('team_id', 'tournament_id', name='unique_team_per_tournament'),

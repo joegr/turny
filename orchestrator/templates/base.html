@@ -40,6 +40,35 @@
                         <span class="w-2 h-2 rounded-full bg-gray-500" id="status-dot"></span>
                         <span id="status-text">Connecting...</span>
                     </div>
+                    <!-- Auth UI -->
+                    <div id="auth-container">
+                        <div id="auth-logged-out" class="hidden">
+                            <button onclick="showLoginModal()" class="flex items-center space-x-2 px-3 py-2 bg-yellow-500 hover:bg-yellow-400 text-gray-900 font-semibold rounded-lg transition-colors">
+                                <i data-lucide="log-in" class="w-4 h-4"></i>
+                                <span>Sign In</span>
+                            </button>
+                        </div>
+                        <div id="auth-logged-in" class="hidden flex items-center space-x-3">
+                            <!-- Admin: Create Tournament button -->
+                            <button id="admin-create-btn" onclick="location.href='/tournaments/new'" class="hidden flex items-center space-x-2 px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white text-sm font-semibold rounded-lg transition-colors">
+                                <i data-lucide="plus" class="w-4 h-4"></i>
+                                <span>Create Tournament</span>
+                            </button>
+                            <!-- User: Join Tournament button -->
+                            <button id="user-team-btn" onclick="showCreateTeamModal()" class="hidden flex items-center space-x-2 px-3 py-1.5 bg-green-600 hover:bg-green-500 text-white text-sm font-semibold rounded-lg transition-colors">
+                                <i data-lucide="trophy" class="w-4 h-4"></i>
+                                <span>Join Tournament</span>
+                            </button>
+                            <div class="flex items-center space-x-2">
+                                <i data-lucide="user" class="w-5 h-5 text-yellow-500"></i>
+                                <span id="user-display-name" class="text-sm font-medium"></span>
+                                <span id="admin-badge" class="hidden px-1.5 py-0.5 bg-red-600 text-white text-xs rounded">Admin</span>
+                            </div>
+                            <button onclick="logout()" class="text-gray-400 hover:text-white transition-colors" title="Sign Out">
+                                <i data-lucide="log-out" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -52,6 +81,141 @@
 
     <!-- Toast Container -->
     <div id="toast-container" class="fixed bottom-4 right-4 space-y-2 z-50"></div>
+
+    <!-- Login Modal -->
+    <div id="login-modal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 hidden">
+        <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 w-full max-w-md mx-4 shadow-2xl">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-xl font-bold text-yellow-500">Sign In</h2>
+                <button onclick="hideLoginModal()" class="text-gray-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div id="user-login-form">
+                <form id="login-form" onsubmit="handleLogin(event)">
+                    <div class="mb-4">
+                        <label for="username-input" class="block text-sm font-medium text-gray-300 mb-2">
+                            Username
+                        </label>
+                        <input type="text" id="username-input" name="username" 
+                               class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+                               placeholder="Enter your username"
+                               minlength="2" maxlength="50" required autofocus>
+                        <p class="mt-2 text-xs text-gray-400">
+                            <i data-lucide="shield" class="w-3 h-3 inline"></i>
+                            Your username is encrypted and only revealed to opposing captains during matches.
+                        </p>
+                    </div>
+                    <button type="submit" id="login-submit-btn"
+                            class="w-full py-3 bg-yellow-500 hover:bg-yellow-400 text-gray-900 font-bold rounded-lg transition-colors flex items-center justify-center space-x-2">
+                        <i data-lucide="log-in" class="w-5 h-5"></i>
+                        <span>Sign In</span>
+                    </button>
+                </form>
+                <button type="button" onclick="showAdminLoginForm()" 
+                        class="w-full mt-3 text-xs text-gray-500 hover:text-gray-400 transition-colors">
+                    Admin Login
+                </button>
+            </div>
+            <div id="admin-login-form" class="hidden">
+                <div class="flex mb-4 border-b border-gray-700">
+                    <button type="button" id="admin-login-tab" onclick="showAdminLoginTab()" 
+                            class="flex-1 py-2 text-sm font-medium text-yellow-500 border-b-2 border-yellow-500">
+                        Sign In
+                    </button>
+                    <button type="button" id="admin-register-tab" onclick="showAdminRegisterTab()" 
+                            class="flex-1 py-2 text-sm font-medium text-gray-400 hover:text-gray-300">
+                        Register
+                    </button>
+                </div>
+                <form id="admin-form" onsubmit="handleAdminAuth(event)">
+                    <div class="mb-4">
+                        <label for="admin-username-input" class="block text-sm font-medium text-gray-300 mb-2">
+                            Admin Username
+                        </label>
+                        <input type="text" id="admin-username-input" name="username" 
+                               class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+                               placeholder="Admin username"
+                               minlength="2" maxlength="50" required>
+                    </div>
+                    <div class="mb-4">
+                        <label for="admin-password-input" class="block text-sm font-medium text-gray-300 mb-2">
+                            Password
+                        </label>
+                        <input type="password" id="admin-password-input" name="password" 
+                               class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+                               placeholder="Password (min 6 characters)"
+                               minlength="6" required>
+                    </div>
+                    <button type="submit" id="admin-login-submit-btn"
+                            class="w-full py-3 bg-red-600 hover:bg-red-500 text-white font-bold rounded-lg transition-colors flex items-center justify-center space-x-2">
+                        <i data-lucide="shield" class="w-5 h-5"></i>
+                        <span id="admin-submit-text">Admin Sign In</span>
+                    </button>
+                </form>
+                <button type="button" onclick="showUserLoginForm()" 
+                        class="w-full mt-3 text-xs text-gray-500 hover:text-gray-400 transition-colors">
+                    ← Back to User Login
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Join Tournament Modal (requires login) -->
+    <div id="create-team-modal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 hidden">
+        <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 w-full max-w-md mx-4 shadow-2xl">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-xl font-bold text-yellow-500">
+                    <i data-lucide="users" class="w-6 h-6 inline mr-2"></i>
+                    Join Tournament
+                </h2>
+                <button onclick="hideCreateTeamModal()" class="text-gray-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <p class="text-gray-400 text-sm mb-4">
+                Register your team for a tournament. You'll be the team captain.
+            </p>
+            <form id="create-team-form" onsubmit="handleCreateTeam(event)">
+                <div class="mb-4">
+                    <label for="team-name-input" class="block text-sm font-medium text-gray-300 mb-2">
+                        Team Name
+                    </label>
+                    <input type="text" id="team-name-input" name="team_name" 
+                           class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+                           placeholder="Enter your team name"
+                           minlength="2" maxlength="50" required>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-300 mb-2">
+                        Captain
+                    </label>
+                    <div class="px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-gray-300">
+                        <span id="captain-display">Loading...</span>
+                        <span class="text-xs text-gray-500 ml-2">(your display name)</span>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label for="tournament-select" class="block text-sm font-medium text-gray-300 mb-2">
+                        Select Tournament
+                    </label>
+                    <select id="tournament-select" name="tournament_id"
+                            class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500" required>
+                        <option value="">Loading tournaments...</option>
+                    </select>
+                </div>
+                <button type="submit" id="create-team-submit-btn"
+                        class="w-full py-3 bg-yellow-500 hover:bg-yellow-400 text-gray-900 font-bold rounded-lg transition-colors flex items-center justify-center space-x-2">
+                    <i data-lucide="plus" class="w-5 h-5"></i>
+                    <span>Join Tournament</span>
+                </button>
+                <button type="button" onclick="hideCreateTeamModal()" 
+                        class="w-full mt-2 py-2 text-gray-400 hover:text-white text-sm transition-colors">
+                    Cancel
+                </button>
+            </form>
+        </div>
+    </div>
 
     <script>
         // Initialize Lucide icons
@@ -117,6 +281,313 @@
         // Check health immediately and then every 10 seconds
         checkHealth();
         setInterval(checkHealth, 10000);
+
+        // ==================== Authentication ====================
+        let currentUser = null;
+        
+        // Expose getCurrentUser for other pages
+        window.getCurrentUser = function() {
+            return currentUser;
+        };
+
+        function showLoginModal() {
+            document.getElementById('login-modal').classList.remove('hidden');
+            document.getElementById('username-input').focus();
+            lucide.createIcons();
+        }
+
+        function hideLoginModal() {
+            document.getElementById('login-modal').classList.add('hidden');
+            document.getElementById('login-form').reset();
+            document.getElementById('admin-form').reset();
+            showUserLoginForm();
+        }
+
+        function showAdminLoginForm() {
+            document.getElementById('user-login-form').classList.add('hidden');
+            document.getElementById('admin-login-form').classList.remove('hidden');
+            document.getElementById('admin-username-input').focus();
+            lucide.createIcons();
+        }
+
+        function showUserLoginForm() {
+            document.getElementById('admin-login-form').classList.add('hidden');
+            document.getElementById('user-login-form').classList.remove('hidden');
+            document.getElementById('username-input').focus();
+            lucide.createIcons();
+        }
+
+        async function handleLogin(event) {
+            event.preventDefault();
+            const username = document.getElementById('username-input').value.trim();
+            if (!username) return;
+
+            const btn = document.getElementById('login-submit-btn');
+            btn.disabled = true;
+            btn.innerHTML = '<span>Signing in...</span>';
+
+            try {
+                const resp = await fetch('/api/v1/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username })
+                });
+
+                const data = await resp.json();
+                if (resp.ok) {
+                    currentUser = data.user;
+                    updateAuthUI();
+                    hideLoginModal();
+                    showToast('Signed in successfully!', 'success');
+                } else {
+                    showToast(data.error || 'Login failed', 'error');
+                }
+            } catch (error) {
+                showToast('Error signing in', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i data-lucide="log-in" class="w-5 h-5"></i><span>Sign In</span>';
+                lucide.createIcons();
+            }
+        }
+
+        let adminMode = 'login'; // 'login' or 'register'
+
+        function showAdminLoginTab() {
+            adminMode = 'login';
+            document.getElementById('admin-login-tab').className = 'flex-1 py-2 text-sm font-medium text-yellow-500 border-b-2 border-yellow-500';
+            document.getElementById('admin-register-tab').className = 'flex-1 py-2 text-sm font-medium text-gray-400 hover:text-gray-300';
+            document.getElementById('admin-submit-text').textContent = 'Admin Sign In';
+        }
+
+        function showAdminRegisterTab() {
+            adminMode = 'register';
+            document.getElementById('admin-register-tab').className = 'flex-1 py-2 text-sm font-medium text-yellow-500 border-b-2 border-yellow-500';
+            document.getElementById('admin-login-tab').className = 'flex-1 py-2 text-sm font-medium text-gray-400 hover:text-gray-300';
+            document.getElementById('admin-submit-text').textContent = 'Register Admin';
+        }
+
+        async function handleAdminAuth(event) {
+            event.preventDefault();
+            const username = document.getElementById('admin-username-input').value.trim();
+            const password = document.getElementById('admin-password-input').value;
+            if (!username || !password) return;
+
+            const btn = document.getElementById('admin-login-submit-btn');
+            btn.disabled = true;
+            btn.innerHTML = '<span>' + (adminMode === 'login' ? 'Signing in...' : 'Registering...') + '</span>';
+
+            const endpoint = adminMode === 'login' ? '/api/v1/auth/admin-login' : '/api/v1/auth/admin-register';
+
+            try {
+                const resp = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await resp.json();
+                if (resp.ok) {
+                    currentUser = data.user;
+                    updateAuthUI();
+                    hideLoginModal();
+                    showToast(adminMode === 'login' ? 'Admin signed in!' : 'Admin registered!', 'success');
+                } else {
+                    showToast(data.error || 'Failed', 'error');
+                }
+            } catch (error) {
+                showToast('Error', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i data-lucide="shield" class="w-5 h-5"></i><span id="admin-submit-text">' + (adminMode === 'login' ? 'Admin Sign In' : 'Register Admin') + '</span>';
+                lucide.createIcons();
+            }
+        }
+
+        async function logout() {
+            try {
+                await fetch('/api/v1/auth/logout', { method: 'POST' });
+                currentUser = null;
+                updateAuthUI();
+                showToast('Signed out', 'info');
+            } catch (error) {
+                showToast('Error signing out', 'error');
+            }
+        }
+
+        function updateAuthUI() {
+            const loggedOut = document.getElementById('auth-logged-out');
+            const loggedIn = document.getElementById('auth-logged-in');
+            const displayName = document.getElementById('user-display-name');
+            const adminBtn = document.getElementById('admin-create-btn');
+            const userBtn = document.getElementById('user-team-btn');
+            const adminBadge = document.getElementById('admin-badge');
+
+            // Always reset all buttons first
+            adminBtn.classList.add('hidden');
+            userBtn.classList.add('hidden');
+            adminBadge.classList.add('hidden');
+
+            if (currentUser && currentUser.id) {
+                loggedOut.classList.add('hidden');
+                loggedIn.classList.remove('hidden');
+                displayName.textContent = currentUser.display_name || 'User';
+                
+                // Show appropriate button based on role - strict check
+                if (currentUser.is_admin === true) {
+                    adminBtn.classList.remove('hidden');
+                    adminBadge.classList.remove('hidden');
+                } else {
+                    userBtn.classList.remove('hidden');
+                }
+            } else {
+                // Not authenticated - show sign in button
+                currentUser = null;
+                loggedOut.classList.remove('hidden');
+                loggedIn.classList.add('hidden');
+            }
+            
+            // Dispatch event for other pages
+            window.dispatchEvent(new CustomEvent('authStateChanged', { detail: currentUser }));
+            lucide.createIcons();
+        }
+
+        async function checkAuth() {
+            try {
+                const resp = await fetch('/api/v1/auth/me');
+                const data = await resp.json();
+                if (data.authenticated && data.user && data.user.id) {
+                    currentUser = data.user;
+                } else {
+                    currentUser = null;
+                }
+            } catch (error) {
+                currentUser = null;
+            }
+            updateAuthUI();
+        }
+
+        // Show logged-out state initially, then check auth
+        document.getElementById('auth-logged-out').classList.remove('hidden');
+        checkAuth();
+
+        // Close modal on escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                hideLoginModal();
+                hideCreateTeamModal();
+            }
+        });
+
+        // Close modal on backdrop click
+        document.getElementById('login-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'login-modal') hideLoginModal();
+        });
+        document.getElementById('create-team-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'create-team-modal') hideCreateTeamModal();
+        });
+
+        // ==================== Join Tournament Modal ====================
+        async function showCreateTeamModal() {
+            if (!currentUser) {
+                showLoginModal();
+                return;
+            }
+            document.getElementById('create-team-modal').classList.remove('hidden');
+            document.getElementById('captain-display').textContent = currentUser.display_name;
+            lucide.createIcons();
+            await loadTournamentsForSelect();
+        }
+
+        function hideCreateTeamModal() {
+            document.getElementById('create-team-modal').classList.add('hidden');
+            document.getElementById('create-team-form').reset();
+        }
+
+        async function loadTournamentsForSelect() {
+            const select = document.getElementById('tournament-select');
+            try {
+                const resp = await fetch('/api/v1/tournaments?status=registration');
+                const data = await resp.json();
+                const tournaments = data.tournaments || [];
+                
+                if (tournaments.length > 0) {
+                    let options = '<option value="">-- Select a tournament --</option>';
+                    options += tournaments.map(t => 
+                        `<option value="${t.tournament_id}">${t.name} (${t.team_count}/${t.max_teams} teams)</option>`
+                    ).join('');
+                    select.innerHTML = options;
+                } else {
+                    select.innerHTML = '<option value="">No tournaments open for registration</option>';
+                }
+            } catch (error) {
+                select.innerHTML = '<option value="">Error loading tournaments</option>';
+            }
+        }
+
+        async function handleCreateTeam(event) {
+            event.preventDefault();
+            
+            if (!currentUser) {
+                showToast('Please sign in first', 'error');
+                return;
+            }
+            
+            const teamName = document.getElementById('team-name-input').value.trim();
+            const tournamentId = document.getElementById('tournament-select').value;
+            
+            if (!teamName) {
+                showToast('Please enter a team name', 'error');
+                return;
+            }
+            
+            if (!tournamentId) {
+                showToast('Please select a tournament', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('create-team-submit-btn');
+            btn.disabled = true;
+            btn.innerHTML = '<span>Joining...</span>';
+
+            try {
+                const resp = await fetch(`/api/v1/play/${tournamentId}/teams`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: teamName, captain: currentUser.display_name })
+                });
+
+                const data = await resp.json();
+                if (resp.ok) {
+                    hideCreateTeamModal();
+                    showToast(`Team "${teamName}" joined tournament!`, 'success');
+                    // Redirect to tournament bracket view
+                    setTimeout(() => {
+                        window.location.href = `/${tournamentId}/bracket`;
+                    }, 1000);
+                } else {
+                    showToast(data.error || 'Failed to join tournament', 'error');
+                }
+            } catch (error) {
+                showToast('Error joining tournament', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i data-lucide="plus" class="w-5 h-5"></i><span>Join Tournament</span>';
+                lucide.createIcons();
+            }
+        }
+
+        // Expose auth state globally
+        window.getCurrentUser = () => currentUser;
+        window.isAuthenticated = () => !!currentUser;
+        window.requireAuth = (callback) => {
+            if (currentUser) {
+                callback(currentUser);
+            } else {
+                showLoginModal();
+            }
+        };
+        window.showCreateTeamModal = showCreateTeamModal;
     </script>
     {% block scripts %}{% endblock %}
 </body>

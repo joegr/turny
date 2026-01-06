@@ -401,8 +401,37 @@ class MatchEngine:
                 if team1_score is not None:
                     team2.goals_against += team1_score
             
-            # ELO for draw (no change or small adjustment)
-            # For simplicity, no ELO change on draw
+            # ELO for draw - higher rated team loses points, lower rated gains
+            if team1 and team2:
+                new_team1_rating, new_team2_rating = self.elo_calculator.calculate_draw_rating_change(
+                    team1.elo_rating, team2.elo_rating
+                )
+                
+                # Record ELO history for both teams
+                team1_history = EloHistory(
+                    team_id=team1.id,
+                    match_id=match_id,
+                    old_rating=old_team1_rating,
+                    new_rating=new_team1_rating,
+                    rating_change=new_team1_rating - old_team1_rating,
+                    opponent_rating=old_team2_rating,
+                    result='draw'
+                )
+                team2_history = EloHistory(
+                    team_id=team2.id,
+                    match_id=match_id,
+                    old_rating=old_team2_rating,
+                    new_rating=new_team2_rating,
+                    rating_change=new_team2_rating - old_team2_rating,
+                    opponent_rating=old_team1_rating,
+                    result='draw'
+                )
+                db.session.add(team1_history)
+                db.session.add(team2_history)
+                
+                team1.elo_rating = new_team1_rating
+                team2.elo_rating = new_team2_rating
+            
             result_msg = f"Match {match_id} ended in a draw"
         else:
             # Win/Loss result

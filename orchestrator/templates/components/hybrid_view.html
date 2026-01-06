@@ -366,13 +366,14 @@ window.HybridView = {
             const qualifies = idx < this.teamsAdvance;
             const gd = team.goal_difference;
             const gdDisplay = gd > 0 ? `+${gd}` : gd;
+            const teamLink = `/tournaments/${this.tournamentId}/teams/${team.team_id}`;
             
             return `
-                <tr class="${qualifies ? 'qualifies' : ''}">
+                <tr class="${qualifies ? 'qualifies' : ''} hover:bg-gray-700/30 cursor-pointer" onclick="location.href='${teamLink}'">
                     <td>
                         <div class="team-cell">
                             <span class="rank-badge ${idx < 2 ? 'rank-' + (idx + 1) : ''}">${idx + 1}</span>
-                            <span>${team.name}</span>
+                            <a href="${teamLink}" class="hover:text-yellow-400 transition-colors" onclick="event.stopPropagation()">${team.name}</a>
                         </div>
                     </td>
                     <td>${team.played || 0}</td>
@@ -392,6 +393,8 @@ window.HybridView = {
             const team2 = teams[m.team2] || { name: m.team2 };
             const isComplete = m.status === 'completed';
             const isDraw = m.is_draw;
+            const team1Link = m.team1 ? `/tournaments/${this.tournamentId}/teams/${m.team1}` : '#';
+            const team2Link = m.team2 ? `/tournaments/${this.tournamentId}/teams/${m.team2}` : '#';
             
             let team1Class = '', team2Class = '';
             if (isComplete && !isDraw) {
@@ -402,8 +405,8 @@ window.HybridView = {
             return `
                 <div class="match-item ${m.status}" onclick="window.ColumnBracket?.openMatchModal(${JSON.stringify(m).replace(/"/g, '&quot;')}, ${JSON.stringify(teams).replace(/"/g, '&quot;')})">
                     <div class="match-teams">
-                        <span class="match-team ${team1Class}">${team1.name}</span>
-                        <span class="match-team ${team2Class}">${team2.name}</span>
+                        <a href="${team1Link}" class="match-team ${team1Class} hover:text-yellow-400 transition-colors" onclick="event.stopPropagation()">${team1.name}</a>
+                        <a href="${team2Link}" class="match-team ${team2Class} hover:text-yellow-400 transition-colors" onclick="event.stopPropagation()">${team2.name}</a>
                     </div>
                     <span class="match-score">
                         ${isComplete ? `${m.team1_score ?? 0} - ${m.team2_score ?? 0}` : 'vs'}

@@ -1,0 +1,347 @@
+{% extends "base.html" %}
+
+{% block title %}{{ tournament.name }} - Standings{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Breadcrumb Navigation -->
+    <nav class="flex items-center space-x-2 text-sm">
+        <a href="/" class="text-gray-400 hover:text-white transition-colors">Home</a>
+        <i data-lucide="chevron-right" class="w-4 h-4 text-gray-600"></i>
+        <a href="/tournaments/{{ tournament_id }}" class="text-gray-400 hover:text-white transition-colors">{{ tournament.name }}</a>
+        <i data-lucide="chevron-right" class="w-4 h-4 text-gray-600"></i>
+        <span class="text-yellow-500 font-medium">Standings</span>
+    </nav>
+
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+            <h1 class="text-3xl font-bold text-white">Team Standings</h1>
+            <p class="text-gray-400 mt-1">{{ tournament.name }}</p>
+        </div>
+        <div class="flex items-center space-x-3">
+            <a href="/tournaments/{{ tournament_id }}/play" class="bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-xl flex items-center space-x-2 border border-gray-600 transition-all">
+                <i data-lucide="layout-grid" class="w-4 h-4"></i>
+                <span>Bracket</span>
+            </a>
+            <a href="/tournaments/{{ tournament_id }}/list" class="bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-xl flex items-center space-x-2 border border-gray-600 transition-all">
+                <i data-lucide="list" class="w-4 h-4"></i>
+                <span>Results</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- View Toggle -->
+    <div class="flex items-center space-x-2 bg-gray-800 rounded-xl p-1 w-fit">
+        <button id="btn-overall" onclick="setView('overall')" class="px-4 py-2 rounded-lg text-sm font-medium transition-all bg-yellow-500 text-gray-900">
+            Overall Standings
+        </button>
+        <button id="btn-groups" onclick="setView('groups')" class="px-4 py-2 rounded-lg text-sm font-medium transition-all text-gray-400 hover:text-white">
+            Group Standings
+        </button>
+        <button id="btn-elo" onclick="setView('elo')" class="px-4 py-2 rounded-lg text-sm font-medium transition-all text-gray-400 hover:text-white">
+            ELO Rankings
+        </button>
+    </div>
+
+    <!-- Overall Standings View -->
+    <div id="view-overall" class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-700 flex items-center space-x-3">
+            <div class="w-8 h-8 rounded-lg bg-yellow-500/10 flex items-center justify-center">
+                <i data-lucide="trophy" class="w-4 h-4 text-yellow-500"></i>
+            </div>
+            <h2 class="text-lg font-semibold">Overall Standings</h2>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead>
+                    <tr class="border-b border-gray-700 text-left">
+                        <th class="px-6 py-4 text-xs font-medium text-gray-400 uppercase tracking-wider w-16">#</th>
+                        <th class="px-6 py-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Team</th>
+                        <th class="px-6 py-4 text-xs font-medium text-gray-400 uppercase tracking-wider text-center">P</th>
+                        <th class="px-6 py-4 text-xs font-medium text-gray-400 uppercase tracking-wider text-center">W</th>
+                        <th class="px-6 py-4 text-xs font-medium text-gray-400 uppercase tracking-wider text-center">D</th>
+                        <th class="px-6 py-4 text-xs font-medium text-gray-400 uppercase tracking-wider text-center">L</th>
+                        <th class="px-6 py-4 text-xs font-medium text-gray-400 uppercase tracking-wider text-center">GF</th>
+                        <th class="px-6 py-4 text-xs font-medium text-gray-400 uppercase tracking-wider text-center">GA</th>
+                        <th class="px-6 py-4 text-xs font-medium text-gray-400 uppercase tracking-wider text-center">GD</th>
+                        <th class="px-6 py-4 text-xs font-medium text-gray-400 uppercase tracking-wider text-center">Pts</th>
+                        <th class="px-6 py-4 text-xs font-medium text-gray-400 uppercase tracking-wider text-center">ELO</th>
+                    </tr>
+                </thead>
+                <tbody id="overall-standings-body">
+                    <tr>
+                        <td colspan="11" class="px-6 py-12 text-center text-gray-500">Loading standings...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Group Standings View -->
+    <div id="view-groups" class="hidden space-y-6">
+        <div id="group-standings-container" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-gray-800 rounded-xl border border-gray-700 p-12 text-center text-gray-500">
+                Loading group standings...
+            </div>
+        </div>
+    </div>
+
+    <!-- ELO Rankings View -->
+    <div id="view-elo" class="hidden bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-700 flex items-center space-x-3">
+            <div class="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                <i data-lucide="bar-chart-3" class="w-4 h-4 text-purple-500"></i>
+            </div>
+            <h2 class="text-lg font-semibold">ELO Rankings</h2>
+        </div>
+        <div class="p-4" id="elo-rankings-container">
+            <div class="text-center py-12 text-gray-500">Loading ELO rankings...</div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const tournamentId = '{{ tournament_id }}';
+    let currentView = 'overall';
+    let standingsData = [];
+
+    function setView(view) {
+        currentView = view;
+        
+        // Update button states
+        ['overall', 'groups', 'elo'].forEach(v => {
+            const btn = document.getElementById(`btn-${v}`);
+            const viewEl = document.getElementById(`view-${v}`);
+            
+            if (v === view) {
+                btn.className = 'px-4 py-2 rounded-lg text-sm font-medium transition-all bg-yellow-500 text-gray-900';
+                viewEl.classList.remove('hidden');
+            } else {
+                btn.className = 'px-4 py-2 rounded-lg text-sm font-medium transition-all text-gray-400 hover:text-white';
+                viewEl.classList.add('hidden');
+            }
+        });
+    }
+
+    async function loadStandings() {
+        try {
+            const [standings, groupStandings] = await Promise.all([
+                fetch(`/api/v1/play/${tournamentId}/standings`).then(r => r.json()),
+                fetch(`/api/v1/play/${tournamentId}/group-standings`).then(r => r.json())
+            ]);
+            
+            standingsData = standings;
+            renderOverallStandings(standings);
+            renderGroupStandings(groupStandings);
+            renderEloRankings(standings);
+            
+        } catch (error) {
+            console.error('Error loading standings:', error);
+        }
+    }
+
+    function getRankBadge(rank) {
+        if (rank === 1) return '<div class="w-8 h-8 rounded-full bg-yellow-500 flex items-center justify-center font-bold text-gray-900">1</div>';
+        if (rank === 2) return '<div class="w-8 h-8 rounded-full bg-gray-400 flex items-center justify-center font-bold text-gray-900">2</div>';
+        if (rank === 3) return '<div class="w-8 h-8 rounded-full bg-amber-700 flex items-center justify-center font-bold text-white">3</div>';
+        return `<div class="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center font-medium text-gray-300">${rank}</div>`;
+    }
+
+    function renderOverallStandings(standings) {
+        const tbody = document.getElementById('overall-standings-body');
+        
+        if (!standings || standings.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="11" class="px-6 py-12 text-center">
+                        <div class="w-16 h-16 rounded-full bg-gray-700/50 flex items-center justify-center mx-auto mb-3">
+                            <i data-lucide="users" class="w-8 h-8 text-gray-500"></i>
+                        </div>
+                        <p class="text-gray-400">No teams registered yet</p>
+                    </td>
+                </tr>
+            `;
+            lucide.createIcons();
+            return;
+        }
+        
+        tbody.innerHTML = standings.map((team, idx) => {
+            const gd = team.goal_difference || 0;
+            const gdClass = gd > 0 ? 'text-green-400' : gd < 0 ? 'text-red-400' : 'text-gray-400';
+            const gdDisplay = gd > 0 ? `+${gd}` : gd;
+            
+            return `
+                <tr class="border-b border-gray-700/50 hover:bg-gray-700/30 transition-colors cursor-pointer" 
+                    onclick="location.href='/tournaments/${tournamentId}/teams/${team.team_id}'">
+                    <td class="px-6 py-4">${getRankBadge(idx + 1)}</td>
+                    <td class="px-6 py-4">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 rounded-xl bg-gray-700 flex items-center justify-center">
+                                <i data-lucide="shield" class="w-5 h-5 text-gray-400"></i>
+                            </div>
+                            <div>
+                                <p class="font-semibold text-white">${team.name}</p>
+                                <p class="text-xs text-gray-500">${team.captain}</p>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 text-center text-gray-300">${team.played || 0}</td>
+                    <td class="px-6 py-4 text-center text-green-400 font-medium">${team.wins || 0}</td>
+                    <td class="px-6 py-4 text-center text-gray-400">${team.draws || 0}</td>
+                    <td class="px-6 py-4 text-center text-red-400">${team.losses || 0}</td>
+                    <td class="px-6 py-4 text-center text-gray-300">${team.goals_for || 0}</td>
+                    <td class="px-6 py-4 text-center text-gray-300">${team.goals_against || 0}</td>
+                    <td class="px-6 py-4 text-center ${gdClass} font-medium">${gdDisplay}</td>
+                    <td class="px-6 py-4 text-center">
+                        <span class="px-3 py-1 rounded-full bg-green-500/20 text-green-400 font-bold">${team.points || 0}</span>
+                    </td>
+                    <td class="px-6 py-4 text-center">
+                        <span class="text-yellow-500 font-semibold">${team.elo_rating || 1500}</span>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+        
+        lucide.createIcons();
+    }
+
+    function renderGroupStandings(groups) {
+        const container = document.getElementById('group-standings-container');
+        const groupNames = Object.keys(groups).sort();
+        
+        if (groupNames.length === 0) {
+            container.innerHTML = `
+                <div class="col-span-full bg-gray-800 rounded-xl border border-gray-700 p-12 text-center">
+                    <div class="w-16 h-16 rounded-full bg-gray-700/50 flex items-center justify-center mx-auto mb-3">
+                        <i data-lucide="layers" class="w-8 h-8 text-gray-500"></i>
+                    </div>
+                    <p class="text-gray-400">No group stage in this tournament</p>
+                    <p class="text-gray-500 text-sm mt-1">This tournament uses a different format</p>
+                </div>
+            `;
+            lucide.createIcons();
+            return;
+        }
+        
+        container.innerHTML = groupNames.map(groupName => {
+            const standings = groups[groupName];
+            const rows = standings.map((team, idx) => {
+                const qualifies = idx < 2;
+                const gd = team.goal_difference || 0;
+                const gdClass = gd > 0 ? 'text-green-400' : gd < 0 ? 'text-red-400' : 'text-gray-400';
+                const gdDisplay = gd > 0 ? `+${gd}` : gd;
+                
+                return `
+                    <tr class="${qualifies ? 'bg-green-500/5' : ''} border-b border-gray-700/50 hover:bg-gray-700/30 transition-colors cursor-pointer"
+                        onclick="location.href='/tournaments/${tournamentId}/teams/${team.team_id}'">
+                        <td class="px-4 py-3">
+                            <div class="flex items-center space-x-2">
+                                ${getRankBadge(idx + 1)}
+                                <span class="font-medium text-white">${team.name}</span>
+                            </div>
+                        </td>
+                        <td class="px-3 py-3 text-center text-gray-300">${team.played || 0}</td>
+                        <td class="px-3 py-3 text-center text-green-400">${team.wins || 0}</td>
+                        <td class="px-3 py-3 text-center text-gray-400">${team.draws || 0}</td>
+                        <td class="px-3 py-3 text-center text-red-400">${team.losses || 0}</td>
+                        <td class="px-3 py-3 text-center ${gdClass}">${gdDisplay}</td>
+                        <td class="px-3 py-3 text-center">
+                            <span class="font-bold text-green-400">${team.points || 0}</span>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            
+            return `
+                <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-700 flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 rounded-xl bg-yellow-500/10 flex items-center justify-center">
+                                <span class="text-yellow-500 font-bold text-lg">${groupName}</span>
+                            </div>
+                            <h3 class="text-lg font-semibold">Group ${groupName}</h3>
+                        </div>
+                        <span class="text-xs text-gray-500">Top 2 qualify</span>
+                    </div>
+                    <table class="w-full">
+                        <thead>
+                            <tr class="border-b border-gray-700 text-left">
+                                <th class="px-4 py-3 text-xs font-medium text-gray-400 uppercase">Team</th>
+                                <th class="px-3 py-3 text-xs font-medium text-gray-400 uppercase text-center">P</th>
+                                <th class="px-3 py-3 text-xs font-medium text-gray-400 uppercase text-center">W</th>
+                                <th class="px-3 py-3 text-xs font-medium text-gray-400 uppercase text-center">D</th>
+                                <th class="px-3 py-3 text-xs font-medium text-gray-400 uppercase text-center">L</th>
+                                <th class="px-3 py-3 text-xs font-medium text-gray-400 uppercase text-center">GD</th>
+                                <th class="px-3 py-3 text-xs font-medium text-gray-400 uppercase text-center">Pts</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>
+            `;
+        }).join('');
+        
+        lucide.createIcons();
+    }
+
+    function renderEloRankings(standings) {
+        const container = document.getElementById('elo-rankings-container');
+        
+        // Sort by ELO
+        const eloSorted = [...standings].sort((a, b) => (b.elo_rating || 1500) - (a.elo_rating || 1500));
+        
+        if (eloSorted.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-12">
+                    <div class="w-16 h-16 rounded-full bg-gray-700/50 flex items-center justify-center mx-auto mb-3">
+                        <i data-lucide="bar-chart-3" class="w-8 h-8 text-gray-500"></i>
+                    </div>
+                    <p class="text-gray-400">No teams to rank yet</p>
+                </div>
+            `;
+            lucide.createIcons();
+            return;
+        }
+        
+        const maxElo = Math.max(...eloSorted.map(t => t.elo_rating || 1500));
+        const minElo = Math.min(...eloSorted.map(t => t.elo_rating || 1500));
+        const range = maxElo - minElo || 1;
+        
+        container.innerHTML = `
+            <div class="space-y-3">
+                ${eloSorted.map((team, idx) => {
+                    const elo = team.elo_rating || 1500;
+                    const barWidth = ((elo - minElo) / range) * 100;
+                    const barColor = idx === 0 ? 'bg-yellow-500' : idx === 1 ? 'bg-gray-400' : idx === 2 ? 'bg-amber-700' : 'bg-purple-500';
+                    
+                    return `
+                        <div class="flex items-center space-x-4 p-3 bg-gray-700/30 rounded-xl hover:bg-gray-700/50 transition-colors cursor-pointer"
+                             onclick="location.href='/tournaments/${tournamentId}/teams/${team.team_id}'">
+                            <div class="w-8 text-center">
+                                ${getRankBadge(idx + 1)}
+                            </div>
+                            <div class="flex-1">
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="font-medium text-white">${team.name}</span>
+                                    <span class="text-yellow-500 font-bold text-lg">${elo}</span>
+                                </div>
+                                <div class="w-full bg-gray-600 rounded-full h-2">
+                                    <div class="${barColor} h-2 rounded-full transition-all" style="width: ${Math.max(barWidth, 5)}%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        `;
+        
+        lucide.createIcons();
+    }
+
+    loadStandings();
+    lucide.createIcons();
+</script>
+{% endblock %}

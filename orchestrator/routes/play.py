@@ -96,23 +96,56 @@ def get_teams(tournament_id):
 
 @bp.route('/api/v1/play/<tournament_id>/teams', methods=['POST'])
 def register_team(tournament_id):
+    from flask_login import current_user
+    
+    # Require authentication
+    if not current_user.is_authenticated:
+        return jsonify({'error': 'Authentication required to register a team'}), 401
+    
+    t = Tournament.query.filter_by(tournament_id=tournament_id).first()
+    if not t:
+        return jsonify({'error': 'Tournament not found'}), 404
+    
     sm = get_state_machine(tournament_id)
     match_engine = get_match_engine(tournament_id)
     
     if not sm.can_perform('register_team'):
         return jsonify({'error': f'Cannot register teams in {sm.state.value} state'}), 400
     
-    data = request.json
-    team_id = data.get('team_id') or f"team_{len(match_engine.get_teams()) + 1}"
-    name = data.get('name')
-    captain = data.get('captain')
+    # Check if tournament is full
+    if len(match_engine.get_teams()) >= t.max_teams:
+        return jsonify({'error': 'Tournament is full'}), 400
     
-    if not name or not captain:
-        return jsonify({'error': 'Name and captain are required'}), 400
+    # Check if user already has a team in this tournament
+    existing_team = Team.query.filter_by(tournament_id=t.id, captain_user_id=current_user.id).first()
+    if existing_team:
+        return jsonify({'error': f'You already have a team in this tournament: {existing_team.name}'}), 400
+    
+    data = request.json or {}
+    name = data.get('name', '').strip()
+    captain = data.get('captain', '').strip() or current_user.display_name
+    
+    if not name:
+        return jsonify({'error': 'Team name is required'}), 400
+    
+    # Generate team_id
+    team_id = f"team_{len(match_engine.get_teams()) + 1}"
     
     try:
         match_engine.register_team(team_id, name, captain)
-        return jsonify({'team_id': team_id, 'message': 'Team registered'})
+        
+        # Link current user as captain
+        team = Team.query.filter_by(tournament_id=t.id, team_id=team_id).first()
+        if team:
+            team.captain_user_id = current_user.id
+            db.session.commit()
+        
+        return jsonify({
+            'team_id': team_id, 
+            'name': name,
+            'captain': captain,
+            'message': 'Team registered successfully'
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
@@ -380,15 +413,15 @@ def get_team_detail(tournament_id, team_id):
         'elo_history': elo_data
     })
 
-@bp.route('/<tournament_id>/teams/<team_id>')
+@bp.route('/tournaments/<tournament_id>/teams/<team_id>')
 def team_detail_page(tournament_id, team_id):
     t = Tournament.query.filter_by(tournament_id=tournament_id).first()
     if not t:
-        return "Tournament not found", 404
+        return render_template('404.html'), 404
     
     team = Team.query.filter_by(tournament_id=t.id, team_id=team_id).first()
     if not team:
-        return "Team not found", 404
+        return render_template('404.html'), 404
     
     return render_template('team_detail.html',
                          tournament_id=tournament_id,
@@ -402,6 +435,17 @@ def bracket_view(tournament_id):
         return "Tournament not found", 404
     
     return render_template('bracket_view.html',
+                         tournament_id=tournament_id,
+                         tournament=t)
+
+@bp.route('/tournaments/<tournament_id>/standings')
+def standings_view(tournament_id):
+    """Team standings/leaderboard view."""
+    t = Tournament.query.filter_by(tournament_id=tournament_id).first()
+    if not t:
+        return render_template('404.html'), 404
+    
+    return render_template('standings.html',
                          tournament_id=tournament_id,
                          tournament=t)
 

@@ -1,10 +1,4 @@
-import uuid
-import subprocess
-import socket
-import time
-import requests
 from typing import Optional, Tuple, List
-from flask import current_app
 
 from .models import db, Tournament, Team
 from .name_generator import generate_tournament_name, generate_short_id
@@ -15,19 +9,11 @@ class TournamentRegistry:
     """
     Manages tournament lifecycle:
     - Create/update/delete tournament records
-    - Track running instances (Monolith: internal routing)
+    - State transitions (draft -> registration -> active -> completed -> archived)
     """
     
     def __init__(self):
-        self._port_pool = set()
-    
-    def _get_available_port(self) -> int:
-        """Deprecated: No longer needed in Monolith mode."""
-        return 0
-    
-    def _is_port_free(self, port: int) -> bool:
-        """Deprecated: No longer needed in Monolith mode."""
-        return True
+        pass
     
     def create_tournament(
         self,
@@ -111,14 +97,8 @@ class TournamentRegistry:
             old_state = sm.state.value
             new_state = sm.transition('publish')
             
-            # Monolith Mode: No external service spawning.
-            # We simply mark it as published. The internal 'play' blueprint handles the rest.
-            
             # Update tournament status from state machine
             tournament.status = new_state.value
-            
-            # Set service URL to internal route for consistency in UI logic
-            tournament.service_url = f"/tournaments/{tournament_id}/play"
             
             db.session.commit()
             
@@ -127,17 +107,9 @@ class TournamentRegistry:
         except TransitionError as e:
             return False, str(e)
     
-    def spawn_service(self, tournament: Tournament) -> Tuple[bool, str]:
-        """Deprecated in Monolith mode."""
-        return True, "Internal service active"
-    
-    def stop_service(self, tournament: Tournament) -> Tuple[bool, str]:
-        """Deprecated in Monolith mode."""
-        return True, "Internal service stopped"
-    
-    def get_service_url(self, tournament_id: str) -> Optional[str]:
-        """Get the service URL for a tournament."""
-        return f"/tournaments/{tournament_id}/play"
+    def get_tournament_url(self, tournament_id: str) -> str:
+        """Get the URL for a tournament's bracket view."""
+        return f"/{tournament_id}/bracket"
     
     def archive_tournament(self, tournament_id: str) -> Tuple[bool, str]:
         """Archive a completed tournament."""

@@ -225,10 +225,18 @@
             const arr = Object.entries(teams);
             if (!arr.length) { container.innerHTML = '<p class="text-gray-500 col-span-full">No teams registered yet</p>'; return; }
             container.innerHTML = arr.map(([id, t]) => `
-                <div class="bg-gray-700 rounded-lg p-4">
-                    <h3 class="font-semibold">${t.name}</h3>
-                    <p class="text-sm text-gray-400">Captain: ${t.captain}</p>
-                </div>
+                <a href="/tournaments/{{ tournament_id }}/teams/${t.team_id}" class="bg-gray-700 rounded-lg p-4 hover:bg-gray-600 hover:border-yellow-500/50 border border-transparent transition-all block">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="font-semibold text-white">${t.name}</h3>
+                            <p class="text-sm text-gray-400">Captain: ${t.captain}</p>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-yellow-500 font-semibold">${t.elo_rating || 1500}</span>
+                            <p class="text-xs text-gray-500">ELO</p>
+                        </div>
+                    </div>
+                </a>
             `).join('');
         }
 
@@ -265,9 +273,11 @@
             if (!container) return;
             if (!matches.length) { container.innerHTML = '<p class="text-gray-500 col-span-full text-center py-8">No matches yet</p>'; return; }
             container.innerHTML = matches.map(m => {
-                const t1 = teams[m.team1] || { name: m.team1 || 'TBD' };
-                const t2 = teams[m.team2] || { name: m.team2 || 'TBD' };
+                const t1 = teams[m.team1] || { name: m.team1 || 'TBD', team_id: m.team1 };
+                const t2 = teams[m.team2] || { name: m.team2 || 'TBD', team_id: m.team2 };
                 const pending = m.status === 'pending';
+                const t1Link = m.team1 ? `/tournaments/{{ tournament_id }}/teams/${m.team1}` : '#';
+                const t2Link = m.team2 ? `/tournaments/{{ tournament_id }}/teams/${m.team2}` : '#';
                 return `
                     <div class="bg-gray-800 rounded-lg border ${pending ? 'border-yellow-500' : 'border-gray-700'} p-4">
                         <div class="flex items-center justify-between mb-3">
@@ -275,15 +285,26 @@
                             <span class="px-2 py-0.5 rounded text-xs ${m.status === 'completed' ? 'bg-green-900 text-green-300' : 'bg-yellow-900 text-yellow-300'}">${m.status.toUpperCase()}</span>
                         </div>
                         <div class="space-y-2">
-                            <button onclick="recordResult('${m.id}', '${m.team1}')" ${!pending ? 'disabled' : ''} class="w-full p-3 rounded-lg flex items-center justify-between ${m.winner === m.team1 ? 'bg-green-900 border-2 border-green-500' : pending ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-700 opacity-50'}">
-                                <span class="font-semibold">${t1.name}</span>
-                                ${m.winner === m.team1 ? '<i data-lucide="trophy" class="w-5 h-5 text-yellow-500"></i>' : ''}
-                            </button>
+                            <div class="w-full p-3 rounded-lg flex items-center justify-between ${m.winner === m.team1 ? 'bg-green-900 border-2 border-green-500' : 'bg-gray-700'}">
+                                <a href="${t1Link}" class="font-semibold hover:text-yellow-400 transition-colors" onclick="event.stopPropagation()">${t1.name}</a>
+                                <div class="flex items-center space-x-2">
+                                    ${m.winner === m.team1 ? '<i data-lucide="trophy" class="w-5 h-5 text-yellow-500"></i>' : ''}
+                                    ${pending ? `<input type="number" id="score1-${m.id}" min="0" value="0" class="w-12 text-center p-1 bg-gray-600 border border-gray-500 rounded text-white text-sm">` : `<span class="text-lg font-bold">${m.team1_score ?? '-'}</span>`}
+                                </div>
+                            </div>
                             <div class="text-center text-gray-500 text-sm">VS</div>
-                            <button onclick="recordResult('${m.id}', '${m.team2}')" ${!pending ? 'disabled' : ''} class="w-full p-3 rounded-lg flex items-center justify-between ${m.winner === m.team2 ? 'bg-green-900 border-2 border-green-500' : pending ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-700 opacity-50'}">
-                                <span class="font-semibold">${t2.name}</span>
-                                ${m.winner === m.team2 ? '<i data-lucide="trophy" class="w-5 h-5 text-yellow-500"></i>' : ''}
+                            <div class="w-full p-3 rounded-lg flex items-center justify-between ${m.winner === m.team2 ? 'bg-green-900 border-2 border-green-500' : 'bg-gray-700'}">
+                                <a href="${t2Link}" class="font-semibold hover:text-yellow-400 transition-colors" onclick="event.stopPropagation()">${t2.name}</a>
+                                <div class="flex items-center space-x-2">
+                                    ${m.winner === m.team2 ? '<i data-lucide="trophy" class="w-5 h-5 text-yellow-500"></i>' : ''}
+                                    ${pending ? `<input type="number" id="score2-${m.id}" min="0" value="0" class="w-12 text-center p-1 bg-gray-600 border border-gray-500 rounded text-white text-sm">` : `<span class="text-lg font-bold">${m.team2_score ?? '-'}</span>`}
+                                </div>
+                            </div>
+                            ${pending ? `
+                            <button onclick="recordResultWithScores('${m.id}', '${m.team1}', '${m.team2}')" class="w-full mt-2 py-2 bg-yellow-500 hover:bg-yellow-400 text-gray-900 font-bold rounded transition-colors">
+                                Record Result
                             </button>
+                            ` : ''}
                         </div>
                     </div>
                 `;
@@ -308,15 +329,49 @@
             }
         }
 
+        async function recordResultWithScores(matchId, team1Id, team2Id) {
+            const score1 = parseInt(document.getElementById(`score1-${matchId}`)?.value || 0);
+            const score2 = parseInt(document.getElementById(`score2-${matchId}`)?.value || 0);
+            
+            // Determine winner or draw
+            let body = {
+                team1_score: score1,
+                team2_score: score2
+            };
+            
+            if (score1 > score2) {
+                body.winner = team1Id;
+            } else if (score2 > score1) {
+                body.winner = team2Id;
+            } else {
+                body.is_draw = true;
+            }
+            
+            const resp = await fetch(`/api/v1/play/{{ tournament_id }}/matches/${matchId}/result`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            if (resp.ok) { 
+                showToast('Result recorded!', 'success'); 
+                loadMatches(); 
+                loadStandings(); 
+            }
+            else { 
+                const err = await resp.json(); 
+                showToast(err.error || 'Failed', 'error'); 
+            }
+        }
+
         async function loadStandings() {
             const resp = await fetch(`/api/v1/play/{{ tournament_id }}/standings`);
             const standings = await resp.json();
             const tbody = document.getElementById('standings-body');
             if (!tbody) return;
             tbody.innerHTML = standings.map((s, i) => `
-                <tr class="border-t border-gray-700">
+                <tr class="border-t border-gray-700 hover:bg-gray-700/30 cursor-pointer" onclick="location.href='/tournaments/{{ tournament_id }}/teams/${s.team_id}'">
                     <td class="py-3">${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : s.rank}</td>
-                    <td class="py-3 font-semibold">${s.name}</td>
+                    <td class="py-3 font-semibold hover:text-yellow-400 transition-colors">${s.name}</td>
                     <td class="py-3 text-center text-green-400">${s.wins}</td>
                     <td class="py-3 text-center text-red-400">${s.losses}</td>
                     <td class="py-3 text-right">${s.win_rate}%</td>

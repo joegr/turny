@@ -72,3 +72,45 @@ class EloCalculator:
         loser_change = round(self.k_factor * (0.0 - expected_loser))
         
         return (winner_change, loser_change)
+    
+    def calculate_draw_rating_change(
+        self,
+        rating_a: int,
+        rating_b: int
+    ) -> Tuple[int, int]:
+        """
+        Calculate new ratings after a draw.
+        In a draw, both players score 0.5.
+        
+        Returns:
+            (new_rating_a, new_rating_b)
+        """
+        expected_a = 1 / (1 + math.pow(10, (rating_b - rating_a) / 400))
+        expected_b = 1 - expected_a
+        
+        # Draw = 0.5 score for both
+        actual_score = 0.5
+        
+        change_a = round(self.k_factor * (actual_score - expected_a))
+        change_b = round(self.k_factor * (actual_score - expected_b))
+        
+        return (rating_a + change_a, rating_b + change_b)
+    
+    def get_draw_change_amount(
+        self,
+        rating_a: int,
+        rating_b: int
+    ) -> Tuple[int, int]:
+        """
+        Get the amount of rating change for a draw without applying it.
+        
+        Returns:
+            (change_a, change_b)
+        """
+        expected_a = 1 / (1 + math.pow(10, (rating_b - rating_a) / 400))
+        expected_b = 1 - expected_a
+        
+        change_a = round(self.k_factor * (0.5 - expected_a))
+        change_b = round(self.k_factor * (0.5 - expected_b))
+        
+        return (change_a, change_b)

@@ -57,10 +57,10 @@
                     <i data-lucide="play" class="w-5 h-5"></i>
                     <span>Start Tournament</span>
                 </button>
-                {% elif tournament.status == 'active' and tournament.service_url %}
-                <a href="/tournaments/{{ tournament.tournament_id }}/live" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center space-x-2">
-                    <i data-lucide="external-link" class="w-5 h-5"></i>
-                    <span>Open Live View</span>
+                {% elif tournament.status == 'active' %}
+                <a href="/{{ tournament.tournament_id }}/bracket" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center space-x-2">
+                    <i data-lucide="play" class="w-5 h-5"></i>
+                    <span>View Bracket</span>
                 </a>
                 {% elif tournament.status == 'completed' %}
                 <button onclick="archiveTournament()" class="bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded-lg flex items-center space-x-2">
@@ -88,19 +88,24 @@
                 {% if tournament.teams %}
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {% for team in tournament.teams %}
-                    <div class="bg-gray-700 rounded-lg p-4">
+                    <a href="/tournaments/{{ tournament.tournament_id }}/teams/{{ team.team_id }}" 
+                       class="bg-gray-700 rounded-lg p-4 hover:bg-gray-600 hover:border-yellow-500/50 border border-transparent transition-all block">
                         <div class="flex items-center justify-between">
                             <div>
-                                <h3 class="font-semibold">{{ team.name }}</h3>
+                                <h3 class="font-semibold text-white hover:text-yellow-400 transition-colors">{{ team.name }}</h3>
                                 <p class="text-sm text-gray-400">Captain: {{ team.captain }}</p>
                             </div>
                             <div class="text-right">
-                                <span class="text-green-400">{{ team.wins }}W</span>
-                                <span class="text-gray-500">/</span>
-                                <span class="text-red-400">{{ team.losses }}L</span>
+                                <span class="text-yellow-500 font-semibold">{{ team.elo_rating }}</span>
+                                <p class="text-xs text-gray-500">ELO</p>
+                                <div class="mt-1">
+                                    <span class="text-green-400 text-sm">{{ team.wins }}W</span>
+                                    <span class="text-gray-500">/</span>
+                                    <span class="text-red-400 text-sm">{{ team.losses }}L</span>
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    </a>
                     {% endfor %}
                 </div>
                 {% else %}
@@ -131,12 +136,6 @@
                         <dt class="text-gray-400">Max Teams</dt>
                         <dd>{{ tournament.max_teams }}</dd>
                     </div>
-                    {% if tournament.service_url %}
-                    <div class="flex justify-between">
-                        <dt class="text-gray-400">Service</dt>
-                        <dd class="text-green-400">Running</dd>
-                    </div>
-                    {% endif %}
                 </dl>
             </div>
 
@@ -155,19 +154,28 @@
 <!-- Register Team Modal -->
 <div id="register-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
     <div class="bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
-        <h3 class="text-xl font-bold mb-4">Register Team</h3>
+        <h3 class="text-xl font-bold mb-4">Join Tournament</h3>
+        <div id="register-auth-required" class="hidden text-center py-4">
+            <p class="text-gray-400 mb-4">You need to sign in to register a team.</p>
+            <button onclick="hideRegisterModal(); showLoginModal();" class="bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold py-2 px-6 rounded-lg">
+                Sign In
+            </button>
+        </div>
         <form id="register-form" class="space-y-4">
             <div>
                 <label class="block text-sm text-gray-400 mb-1">Team Name</label>
                 <input type="text" name="name" required class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:border-yellow-500">
             </div>
             <div>
-                <label class="block text-sm text-gray-400 mb-1">Captain Name</label>
-                <input type="text" name="captain" required class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:border-yellow-500">
+                <label class="block text-sm text-gray-400 mb-1">Captain</label>
+                <div class="bg-gray-700/50 border border-gray-600 rounded-lg px-4 py-2 text-gray-300">
+                    <span id="register-captain-name">Loading...</span>
+                    <span class="text-xs text-gray-500 ml-2">(your display name)</span>
+                </div>
             </div>
             <div class="flex space-x-3">
                 <button type="submit" class="flex-1 bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold py-2 rounded-lg">
-                    Register
+                    Join Tournament
                 </button>
                 <button type="button" onclick="hideRegisterModal()" class="flex-1 bg-gray-700 hover:bg-gray-600 py-2 rounded-lg">
                     Cancel
@@ -183,8 +191,22 @@
     const tournamentId = '{{ tournament.tournament_id }}';
     
     function showRegisterModal() {
-        document.getElementById('register-modal').classList.remove('hidden');
-        document.getElementById('register-modal').classList.add('flex');
+        const user = window.getCurrentUser ? window.getCurrentUser() : null;
+        const modal = document.getElementById('register-modal');
+        const authRequired = document.getElementById('register-auth-required');
+        const form = document.getElementById('register-form');
+        
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        
+        if (!user) {
+            authRequired.classList.remove('hidden');
+            form.classList.add('hidden');
+        } else {
+            authRequired.classList.add('hidden');
+            form.classList.remove('hidden');
+            document.getElementById('register-captain-name').textContent = user.display_name;
+        }
     }
     
     function hideRegisterModal() {
@@ -194,14 +216,20 @@
     
     document.getElementById('register-form').onsubmit = async (e) => {
         e.preventDefault();
+        const user = window.getCurrentUser ? window.getCurrentUser() : null;
+        if (!user) {
+            showToast('Please sign in first', 'error');
+            return;
+        }
+        
         const form = e.target;
         const data = {
             name: form.name.value,
-            captain: form.captain.value
+            captain: user.display_name
         };
         
         try {
-            const resp = await fetch(`/api/v1/tournaments/${tournamentId}/teams`, {
+            const resp = await fetch(`/api/v1/play/${tournamentId}/teams`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
@@ -288,14 +316,17 @@
     }
     
     async function subscribe() {
-        const userId = prompt('Enter your user ID:');
-        if (!userId) return;
+        const user = window.getCurrentUser ? window.getCurrentUser() : null;
+        if (!user) {
+            showToast('Please sign in to subscribe', 'error');
+            return;
+        }
         
         try {
             const resp = await fetch('/api/v1/subscriptions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id: userId, tournament_id: tournamentId })
+                body: JSON.stringify({ user_id: String(user.id), tournament_id: tournamentId })
             });
             
             if (resp.ok) {
