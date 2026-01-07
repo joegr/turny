@@ -451,43 +451,20 @@ def standings_view(tournament_id):
 
 @bp.route('/api/v1/play/<tournament_id>/events')
 def tournament_events_stream(tournament_id):
-    """Server-Sent Events endpoint for real-time tournament updates via Pub/Sub."""
+    """Server-Sent Events endpoint - keepalive only, use polling for updates."""
     t = Tournament.query.filter_by(tournament_id=tournament_id).first()
     if not t:
         return jsonify({'error': 'Tournament not found'}), 404
     
     def event_stream():
-        pubsub = get_pubsub_manager()
-        
-        # Ensure subscription exists
-        pubsub.ensure_subscription_exists(tournament_id, 'sse-stream')
-        
-        # Send initial connection message
         yield f"data: {json.dumps({'event_type': 'connected', 'tournament_id': tournament_id})}\n\n"
-        
-        # Poll for messages
-        while True:
-            try:
-                messages = pubsub.pull_messages(tournament_id, max_messages=10, subscriber_id='sse-stream')
-                
-                for message in messages:
-                    yield f"data: {json.dumps(message)}\n\n"
-                
-                # Sleep briefly to avoid hammering Pub/Sub
-                time.sleep(1)
-                
-            except GeneratorExit:
-                # Client disconnected
-                break
-            except Exception as e:
-                yield f"data: {json.dumps({'event_type': 'error', 'message': str(e)})}\n\n"
-                break
+        # Keepalive only - clients poll /api/v1/play/<id>/bracket for actual updates
+        for _ in range(60):
+            yield ": keepalive\n\n"
+            time.sleep(5)
     
     return Response(
         stream_with_context(event_stream()),
         mimetype='text/event-stream',
-        headers={
-            'Cache-Control': 'no-cache',
-            'X-Accel-Buffering': 'no'
-        }
+        headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'}
     )
