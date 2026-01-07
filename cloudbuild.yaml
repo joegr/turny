@@ -20,14 +20,14 @@ steps:
       - '-i'
       - '${_REGION}-docker.pkg.dev/$PROJECT_ID/turny/tournament-platform:$COMMIT_SHA'
       - '-s'
-      - '$PROJECT_ID:${_REGION}:tournament-db'
+      - '$PROJECT_ID:${_REGION}:turny-prod'
       - '--'
       - 'python'
       - 'manage_db.py'
     env:
       - 'DB_USER=tournament'
       - 'DB_NAME=tournament_db'
-      - 'DB_HOST=/cloudsql/$PROJECT_ID:${_REGION}:tournament-db'
+      - 'DB_HOST=/cloudsql/$PROJECT_ID:${_REGION}:turny-prod'
     secretEnv:
       - 'DB_PASS'
 
@@ -42,9 +42,9 @@ steps:
       - '--region=${_REGION}'
       - '--platform=managed'
       - '--allow-unauthenticated'
-      - '--add-cloudsql-instances=$PROJECT_ID:${_REGION}:tournament-db'
+      - '--add-cloudsql-instances=$PROJECT_ID:${_REGION}:turny-prod'
       - '--service-account=tournament-runner@$PROJECT_ID.iam.gserviceaccount.com'
-      - '--set-env-vars=DB_USER=tournament,DB_NAME=tournament_db,DB_HOST=/cloudsql/$PROJECT_ID:${_REGION}:tournament-db,GCP_PROJECT_ID=$PROJECT_ID,GCP_REGION=${_REGION},FLASK_ENV=production'
+      - '--set-env-vars=DB_USER=tournament,DB_NAME=tournament_db,DB_HOST=/cloudsql/$PROJECT_ID:${_REGION}:turny-prod,GCP_PROJECT_ID=$PROJECT_ID,GCP_REGION=${_REGION},FLASK_ENV=production'
       - '--set-secrets=DB_PASS=tournament-db-pass:latest,SECRET_KEY=flask-secret-key:latest'
 
 substitutions:

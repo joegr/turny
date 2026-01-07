@@ -12,8 +12,13 @@ Go to **APIs & Services > Enable APIs**
 
 ## 2. Create Artifact Registry Repository
 Go to **Artifact Registry > Create Repository**
+
+> ⚠️ This is NOT your GitHub repo - this is where Docker images are stored in GCP.
+
 - [ ] Name: `turny`
 - [ ] Format: Docker
+- [ ] Mode: Standard
+- [ ] Location type: Region
 - [ ] Region: `us-central1`
 
 ## 3. Create Cloud SQL Instance
