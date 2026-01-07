@@ -112,9 +112,10 @@ def register_routes(app: Flask):
     @app.route('/dashboard')
     def user_dashboard():
         """User dashboard with subscriptions and notifications."""
-        # TODO: Get user_id from session/auth
-        user_id = request.args.get('user_id', 'anonymous')
-        subscribed_ids = app.subscriptions.get_user_subscriptions(user_id)
+        if not current_user.is_authenticated:
+            return redirect(url_for('index'))
+        
+        subscribed_ids = app.subscriptions.get_user_subscriptions(str(current_user.id))
         
         subscribed_tournaments = []
         for tid in subscribed_ids:
@@ -123,7 +124,7 @@ def register_routes(app: Flask):
                 subscribed_tournaments.append(t)
         
         return render_template('dashboard.html',
-                             user_id=user_id,
+                             user=current_user,
                              subscriptions=subscribed_tournaments,
                              active_page='dashboard')
 
@@ -252,16 +253,18 @@ def register_api_routes(app: Flask):
     
     @app.route('/api/v1/subscriptions', methods=['POST'])
     def api_subscribe():
-        """Subscribe to a tournament."""
+        """Subscribe to a tournament. Requires authentication."""
+        if not current_user.is_authenticated:
+            return jsonify({'error': 'Authentication required'}), 401
+        
         data = request.json or {}
-        user_id = data.get('user_id')
         tournament_id = data.get('tournament_id')
         
-        if not user_id or not tournament_id:
-            return jsonify({'error': 'user_id and tournament_id required'}), 400
+        if not tournament_id:
+            return jsonify({'error': 'tournament_id required'}), 400
         
         app.subscriptions.subscribe(
-            user_id=user_id,
+            user_id=str(current_user.id),
             tournament_id=tournament_id,
             notify_on_start=data.get('notify_on_start', True),
             notify_on_match=data.get('notify_on_match', True),
@@ -272,23 +275,27 @@ def register_api_routes(app: Flask):
     
     @app.route('/api/v1/subscriptions', methods=['DELETE'])
     def api_unsubscribe():
-        """Unsubscribe from a tournament."""
+        """Unsubscribe from a tournament. Requires authentication."""
+        if not current_user.is_authenticated:
+            return jsonify({'error': 'Authentication required'}), 401
+        
         data = request.json or {}
-        user_id = data.get('user_id')
         tournament_id = data.get('tournament_id')
         
-        if not user_id or not tournament_id:
-            return jsonify({'error': 'user_id and tournament_id required'}), 400
+        if not tournament_id:
+            return jsonify({'error': 'tournament_id required'}), 400
         
-        app.subscriptions.unsubscribe(user_id, tournament_id)
+        app.subscriptions.unsubscribe(str(current_user.id), tournament_id)
         return jsonify({'message': 'Unsubscribed successfully'})
     
-    @app.route('/api/v1/users/<user_id>/subscriptions', methods=['GET'])
-    def api_user_subscriptions(user_id: str):
-        """Get user's subscriptions."""
-        tournament_ids = app.subscriptions.get_user_subscriptions(user_id)
+    @app.route('/api/v1/subscriptions', methods=['GET'])
+    def api_user_subscriptions():
+        """Get current user's subscriptions. Requires authentication."""
+        if not current_user.is_authenticated:
+            return jsonify({'error': 'Authentication required'}), 401
+        
+        tournament_ids = app.subscriptions.get_user_subscriptions(str(current_user.id))
         return jsonify({
-            'user_id': user_id,
             'tournament_ids': tournament_ids
         })
     

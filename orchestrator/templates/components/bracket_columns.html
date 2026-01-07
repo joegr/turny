@@ -431,6 +431,7 @@ window.ColumnBracket = {
         const team2 = teams[match.team2] || { name: 'TBD', elo_rating: 1500 };
         const isCompleted = match.status === 'completed';
         const isGroupStage = match.stage === 'group';
+        const currentUser = window.getCurrentUser ? window.getCurrentUser() : null;
         
         document.getElementById('match-modal-title').textContent = match.id || 'Match Details';
         
@@ -486,6 +487,23 @@ window.ColumnBracket = {
             `;
             content += '</div>';
             content += `<div class="match-modal-status completed">${isDraw ? 'Match Drawn' : 'Match Completed'}</div>`;
+            
+            // Add reveal opponent captain button for captains
+            if (currentUser) {
+                content += `
+                    <div id="reveal-captain-section" style="margin-top: 1rem; text-align: center;">
+                        <button onclick="window.ColumnBracket.revealOpponentCaptain('${match.id}')" 
+                            class="text-sm text-yellow-500 hover:text-yellow-400 underline">
+                            <i data-lucide="eye" class="w-4 h-4 inline mr-1"></i>
+                            Reveal Opponent Captain Contact
+                        </button>
+                        <div id="opponent-captain-info" class="hidden mt-2 p-3 bg-gray-800 rounded-lg text-left">
+                            <p class="text-xs text-gray-400 mb-1">Opponent Captain:</p>
+                            <p id="opponent-captain-name" class="font-semibold text-white"></p>
+                        </div>
+                    </div>
+                `;
+            }
         } else if (!isGroupStage) {
             // Knockout: score inputs + winner selection
             const team1Link = match.team1 ? `/tournaments/${window.currentTournamentId}/teams/${match.team1}` : '#';
@@ -518,6 +536,24 @@ window.ColumnBracket = {
         }
         
         if (!isCompleted) {
+            // Add reveal opponent captain button for captains (before match is played)
+            if (currentUser && match.team1 && match.team2) {
+                content += `
+                    <div id="reveal-captain-section" style="margin-bottom: 1rem; text-align: center; padding: 0.75rem; background: #111827; border-radius: 0.5rem;">
+                        <p class="text-xs text-gray-400 mb-2">Are you a captain in this match?</p>
+                        <button onclick="window.ColumnBracket.revealOpponentCaptain('${match.id}')" 
+                            class="text-sm text-yellow-500 hover:text-yellow-400 underline">
+                            <i data-lucide="eye" class="w-4 h-4 inline mr-1"></i>
+                            Reveal Opponent Captain Contact
+                        </button>
+                        <div id="opponent-captain-info" class="hidden mt-2 p-3 bg-gray-800 rounded-lg text-left">
+                            <p class="text-xs text-gray-400 mb-1">Opponent Captain:</p>
+                            <p id="opponent-captain-name" class="font-semibold text-white"></p>
+                        </div>
+                    </div>
+                `;
+            }
+            
             content += `
                 <div class="match-modal-actions">
                     <button class="match-modal-btn match-modal-btn-cancel" onclick="window.ColumnBracket.closeModal()">Cancel</button>
@@ -643,6 +679,42 @@ window.ColumnBracket = {
         document.getElementById('match-modal-overlay').classList.remove('active');
         this.currentMatch = null;
         this.selectedWinner = null;
+    },
+    
+    async revealOpponentCaptain(matchId) {
+        try {
+            const response = await fetch(`/api/v1/auth/reveal-captain/${window.currentTournamentId}/${matchId}`);
+            const data = await response.json();
+            
+            const infoDiv = document.getElementById('opponent-captain-info');
+            const nameEl = document.getElementById('opponent-captain-name');
+            
+            if (response.ok) {
+                if (data.captain_username) {
+                    nameEl.innerHTML = `
+                        <span class="text-yellow-500">${data.opponent_team}</span><br>
+                        <span class="text-gray-300">Username: ${data.captain_username}</span>
+                        ${data.captain_display_name ? `<br><span class="text-gray-400 text-sm">Display: ${data.captain_display_name}</span>` : ''}
+                    `;
+                } else {
+                    nameEl.textContent = data.message || 'Opponent captain not registered yet';
+                }
+                infoDiv.classList.remove('hidden');
+                // Re-init lucide icons
+                if (window.lucide) lucide.createIcons();
+            } else {
+                if (window.showToast) {
+                    window.showToast(data.error || 'Cannot reveal captain', 'error');
+                } else {
+                    alert(data.error || 'Cannot reveal captain');
+                }
+            }
+        } catch (error) {
+            console.error('Error revealing captain:', error);
+            if (window.showToast) {
+                window.showToast('Error revealing captain', 'error');
+            }
+        }
     },
 
     getRoundName(roundNum, matchCount) {

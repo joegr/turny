@@ -36,12 +36,12 @@ echo ""
 # STEP 1.5: Create Artifact Registry Repository
 # =============================================================================
 echo "=== STEP 1.5: Creating Artifact Registry Repository ==="
-if gcloud artifacts repositories describe tournament-repo \
+if gcloud artifacts repositories describe turny \
     --project=$PROJECT_ID \
     --location=$REGION 2>/dev/null; then
-    echo "✓ Repository 'tournament-repo' already exists"
+    echo "✓ Repository 'turny' already exists"
 else
-    gcloud artifacts repositories create tournament-repo \
+    gcloud artifacts repositories create turny \
         --project=$PROJECT_ID \
         --repository-format=docker \
         --location=$REGION \
@@ -98,8 +98,22 @@ echo "Creating secret for DB password..."
 if gcloud secrets describe tournament-db-pass --project=$PROJECT_ID 2>/dev/null; then
     echo "✓ Secret 'tournament-db-pass' already exists"
 else
-    printf "tournament123" | gcloud secrets create tournament-db-pass --data-file=- --project=$PROJECT_ID
-    echo "✓ Secret 'tournament-db-pass' created"
+    echo "⚠️  Creating tournament-db-pass secret with placeholder value."
+    echo "   You MUST update this secret with your actual DB password:"
+    echo "   gcloud secrets versions add tournament-db-pass --data-file=- --project=$PROJECT_ID"
+    printf "CHANGE_ME" | gcloud secrets create tournament-db-pass --data-file=- --project=$PROJECT_ID
+    echo "✓ Secret 'tournament-db-pass' created (UPDATE THE VALUE!)"
+fi
+
+# Create secret for Flask SECRET_KEY
+echo "Creating secret for Flask SECRET_KEY..."
+if gcloud secrets describe flask-secret-key --project=$PROJECT_ID 2>/dev/null; then
+    echo "✓ Secret 'flask-secret-key' already exists"
+else
+    # Generate a random secret key
+    FLASK_SECRET=$(openssl rand -hex 32)
+    printf "$FLASK_SECRET" | gcloud secrets create flask-secret-key --data-file=- --project=$PROJECT_ID
+    echo "✓ Secret 'flask-secret-key' created"
 fi
 
 CONNECTION_NAME=$(gcloud sql instances describe tournament-db --project=$PROJECT_ID --format="value(connectionName)")
@@ -169,10 +183,14 @@ echo ""
 echo "=== Setup Complete ==="
 echo ""
 echo "Resources created:"
-echo "1. Artifact Registry: tournament-repo"
+echo "1. Artifact Registry: turny"
 echo "2. Cloud SQL: tournament-db (Connection: $CONNECTION_NAME)"
 echo "3. Service Account: $SA_EMAIL"
-echo "4. Secret: tournament-db-pass (in Secret Manager)"
+echo "4. Secrets in Secret Manager:"
+echo "   - tournament-db-pass (⚠️ UPDATE THIS with your actual DB password!)"
+echo "   - flask-secret-key (auto-generated)"
 echo ""
-echo "Cloud Build will use Secret Manager for DB_PASS."
-echo "You can now run: git push to trigger Cloud Build deployment."
+echo "IMPORTANT: Update the DB password secret before deploying:"
+echo "  echo 'YOUR_ACTUAL_PASSWORD' | gcloud secrets versions add tournament-db-pass --data-file=- --project=$PROJECT_ID"
+echo ""
+echo "Then run: git push to trigger Cloud Build deployment."

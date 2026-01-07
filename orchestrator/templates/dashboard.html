@@ -8,7 +8,7 @@
     <div class="flex justify-between items-center">
         <div>
             <h1 class="text-3xl font-bold">Dashboard</h1>
-            <p class="text-gray-400">User: {{ user_id }}</p>
+            <p class="text-gray-400">Welcome, {{ user.display_name or user.username }}</p>
         </div>
     </div>
 
@@ -75,14 +75,7 @@
 
 {% block scripts %}
 <script>
-    const userId = '{{ user_id }}';
     const notifications = [];
-    
-    // Polling for updates (simplified for Monolith)
-    async function checkUpdates() {
-        // In a real app, we'd poll an endpoint for recent events
-        // For MVP, we'll just rely on page refreshes or basic polling if needed
-    }
     
     function renderNotifications() {
         const container = document.getElementById('notifications');
@@ -103,7 +96,7 @@
             await fetch('/api/v1/subscriptions', {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id: userId, tournament_id: tournamentId })
+                body: JSON.stringify({ tournament_id: tournamentId })
             });
             location.reload();
         } catch (err) {

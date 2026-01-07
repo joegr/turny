@@ -13,6 +13,10 @@ build/
 .DS_Store
 *.log
 
+# Node modules (for Tailwind build)
+node_modules/
+package-lock.json
+
 # Environment files (keep .env.example committed)
 .env
 .env.local
