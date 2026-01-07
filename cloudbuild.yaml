@@ -16,22 +16,18 @@ steps:
 
   # Run database migrations using Cloud SQL Proxy
   - name: 'gcr.io/google-appengine/exec-wrapper'
+    entrypoint: 'bash'
     args:
-      - '-i'
-      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/turny/tournament-platform:$COMMIT_SHA'
-      - '-s'
-      - '$PROJECT_ID:${_REGION}:turny-prod'
-      - '-e'
-      - 'DB_USER=tournament'
-      - '-e'
-      - 'DB_NAME=tournament_db'
-      - '-e'
-      - 'DB_HOST=/cloudsql/$PROJECT_ID:${_REGION}:turny-prod'
-      - '-e'
-      - 'DB_PASS=$$DB_PASS'
-      - '--'
-      - 'python'
-      - 'manage_db.py'
+      - '-c'
+      - |
+        /buildstep/execute.sh \
+          -i ${_REGION}-docker.pkg.dev/$PROJECT_ID/turny/tournament-platform:$COMMIT_SHA \
+          -s $PROJECT_ID:${_REGION}:turny-prod \
+          -e DB_USER=tournament \
+          -e DB_NAME=tournament_db \
+          -e "DB_HOST=/cloudsql/$PROJECT_ID:${_REGION}:turny-prod" \
+          -e "DB_PASS=$$DB_PASS" \
+          -- python manage_db.py
     secretEnv:
       - 'DB_PASS'
 
