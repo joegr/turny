@@ -198,7 +198,12 @@ def register_api_routes(app: Flask):
     
     @app.route('/api/v1/tournaments/<tournament_id>', methods=['DELETE'])
     def api_delete_tournament(tournament_id: str):
-        """Delete a tournament (draft only)."""
+        """Delete a tournament (draft only). Admin only."""
+        if not current_user.is_authenticated:
+            return jsonify({'error': 'Authentication required'}), 401
+        if not current_user.is_admin:
+            return jsonify({'error': 'Admin access required'}), 403
+        
         success, message = app.registry.delete_tournament(tournament_id)
         if not success:
             return jsonify({'error': message}), 400
@@ -208,7 +213,12 @@ def register_api_routes(app: Flask):
     
     @app.route('/api/v1/tournaments/<tournament_id>/publish', methods=['POST'])
     def api_publish_tournament(tournament_id: str):
-        """Publish tournament and spawn service."""
+        """Publish tournament and spawn service. Admin only."""
+        if not current_user.is_authenticated:
+            return jsonify({'error': 'Authentication required'}), 401
+        if not current_user.is_admin:
+            return jsonify({'error': 'Admin access required'}), 403
+        
         success, message = app.registry.publish_tournament(tournament_id)
         if not success:
             return jsonify({'error': message}), 400
@@ -221,7 +231,12 @@ def register_api_routes(app: Flask):
     
     @app.route('/api/v1/tournaments/<tournament_id>/archive', methods=['POST'])
     def api_archive_tournament(tournament_id: str):
-        """Archive a completed tournament."""
+        """Archive a completed tournament. Admin only."""
+        if not current_user.is_authenticated:
+            return jsonify({'error': 'Authentication required'}), 401
+        if not current_user.is_admin:
+            return jsonify({'error': 'Admin access required'}), 403
+        
         success, message = app.registry.archive_tournament(tournament_id)
         if not success:
             return jsonify({'error': message}), 400

@@ -213,11 +213,13 @@
             // ELO change badge
             if (elo_history && elo_history.length > 0) {
                 const latest = elo_history[elo_history.length - 1];
-                const change = latest.rating_change;
+                const change = parseInt(latest.rating_change, 10) || 0;
                 const badgeEl = document.getElementById('elo-change-badge');
+                const icon = change > 0 ? 'trending-up' : 'trending-down';
+                const colorClass = change > 0 ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400';
                 badgeEl.innerHTML = `
-                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${change > 0 ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}">
-                        <i data-lucide="${change > 0 ? 'trending-up' : 'trending-down'}" class="w-4 h-4 mr-1"></i>
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${colorClass}">
+                        <i data-lucide="${icon}" class="w-4 h-4 mr-1"></i>
                         ${change > 0 ? '+' : ''}${change} last match
                     </span>
                 `;
@@ -236,6 +238,12 @@
         }
     }
     
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
     function renderMatchHistory(matches, eloHistory) {
         const container = document.getElementById('match-history-container');
         
@@ -252,6 +260,9 @@
                 'pending': { bg: 'bg-gray-600', text: '—', border: 'border-gray-600/30' }
             };
             const config = resultConfig[match.result] || resultConfig.pending;
+            const safeOpponent = escapeHtml(match.opponent || 'Unknown');
+            const safeRound = parseInt(match.round, 10) || 0;
+            const safeChange = parseInt(eloChange?.rating_change, 10) || 0;
             
             return `
                 <div class="flex items-center space-x-4 p-3 bg-gray-700/30 rounded-xl border ${config.border} mb-2">
@@ -259,13 +270,13 @@
                         ${config.text}
                     </div>
                     <div class="flex-1 min-w-0">
-                        <p class="text-white font-medium truncate">vs ${match.opponent}</p>
-                        <p class="text-gray-500 text-xs">Round ${match.round}</p>
+                        <p class="text-white font-medium truncate">vs ${safeOpponent}</p>
+                        <p class="text-gray-500 text-xs">Round ${safeRound}</p>
                     </div>
                     ${eloChange ? `
                         <div class="text-right">
-                            <span class="text-sm font-semibold ${eloChange.rating_change > 0 ? 'text-green-400' : 'text-red-400'}">
-                                ${eloChange.rating_change > 0 ? '+' : ''}${eloChange.rating_change}
+                            <span class="text-sm font-semibold ${safeChange > 0 ? 'text-green-400' : 'text-red-400'}">
+                                ${safeChange > 0 ? '+' : ''}${safeChange}
                             </span>
                         </div>
                     ` : ''}

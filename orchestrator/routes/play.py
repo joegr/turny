@@ -1,10 +1,23 @@
 from flask import Blueprint, render_template, request, jsonify, Response, current_app, url_for, stream_with_context
+from flask_login import current_user, login_required
 from shared.state_machine import TournamentStateMachine, TournamentState, TransitionError
 from orchestrator.match_engine import MatchEngine
 from orchestrator.models import Tournament, Team, db, EloHistory, Match
 from orchestrator.pubsub_manager import get_pubsub_manager
 import json
 import time
+
+def admin_required(f):
+    """Decorator to require admin authentication for an endpoint."""
+    from functools import wraps
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated:
+            return jsonify({'error': 'Authentication required'}), 401
+        if not current_user.is_admin:
+            return jsonify({'error': 'Admin access required'}), 403
+        return f(*args, **kwargs)
+    return decorated_function
 
 bp = Blueprint('play', __name__)
 
@@ -155,6 +168,7 @@ def get_matches(tournament_id):
     return jsonify(match_engine.get_matches())
 
 @bp.route('/api/v1/play/<tournament_id>/matches/<match_id>/result', methods=['POST'])
+@admin_required
 def record_result(tournament_id, match_id):
     sm = get_state_machine(tournament_id)
     match_engine = get_match_engine(tournament_id)
@@ -221,6 +235,7 @@ def record_result(tournament_id, match_id):
     })
 
 @bp.route('/api/v1/play/<tournament_id>/start', methods=['POST'])
+@admin_required
 def start_tournament(tournament_id):
     sm = get_state_machine(tournament_id)
     match_engine = get_match_engine(tournament_id)
@@ -335,6 +350,7 @@ def get_stage_status(tournament_id):
     })
 
 @bp.route('/api/v1/play/<tournament_id>/advance-to-knockout', methods=['POST'])
+@admin_required
 def advance_to_knockout(tournament_id):
     """Generate knockout matches from group stage results."""
     t = Tournament.query.filter_by(tournament_id=tournament_id).first()

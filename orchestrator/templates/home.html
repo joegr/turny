@@ -198,14 +198,18 @@
             'round_robin': 'Round Robin',
             'hybrid': 'Hybrid'
         };
-        const typeLabel = typeLabels[t.tournament_type] || t.tournament_type;
-        const progress = t.max_teams > 0 ? Math.round((t.team_count / t.max_teams) * 100) : 0;
+        const typeLabel = typeLabels[t.tournament_type] || escapeHtml(t.tournament_type);
+        const teamCount = parseInt(t.team_count, 10) || 0;
+        const maxTeams = parseInt(t.max_teams, 10) || 16;
+        const progress = maxTeams > 0 ? Math.round((teamCount / maxTeams) * 100) : 0;
+        const safeTournamentId = escapeHtml(t.tournament_id || '');
+        const safeName = escapeHtml(t.name || 'Unnamed Tournament');
         
         return `
             <div class="bg-gray-700/50 rounded-xl p-4 hover:bg-gray-700 border border-gray-600 hover:border-${statusColor}-500/50 transition-all cursor-pointer group" 
-                 onclick="location.href='/tournaments/${t.tournament_id}'">
+                 onclick="location.href='/tournaments/${safeTournamentId}'">
                 <div class="flex items-start justify-between mb-3">
-                    <h3 class="font-semibold text-white group-hover:text-${statusColor}-400 transition-colors truncate flex-1 mr-2">${t.name}</h3>
+                    <h3 class="font-semibold text-white group-hover:text-${statusColor}-400 transition-colors truncate flex-1 mr-2">${safeName}</h3>
                     <span class="px-2 py-0.5 text-xs font-medium rounded-full bg-${statusColor}-500/20 text-${statusColor}-400 whitespace-nowrap">${statusText}</span>
                 </div>
                 <div class="space-y-3">
@@ -214,7 +218,7 @@
                             <i data-lucide="layout-grid" class="w-3.5 h-3.5 mr-1.5"></i>
                             ${typeLabel}
                         </span>
-                        <span class="text-gray-300 font-medium">${t.team_count}/${t.max_teams}</span>
+                        <span class="text-gray-300 font-medium">${teamCount}/${maxTeams}</span>
                     </div>
                     <div class="w-full bg-gray-600 rounded-full h-1.5">
                         <div class="bg-${statusColor}-500 h-1.5 rounded-full transition-all" style="width: ${progress}%"></div>
