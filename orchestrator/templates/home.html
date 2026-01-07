@@ -14,7 +14,7 @@
             <h1 class="text-5xl font-bold mb-4 bg-gradient-to-r from-white via-gray-100 to-gray-300 bg-clip-text text-transparent">Tournament Platform</h1>
             <p class="text-xl text-gray-400 mb-8 max-w-2xl mx-auto">Create, manage, and compete in tournaments with real-time ELO tracking and live updates</p>
             <div class="flex flex-wrap justify-center gap-4">
-                <a href="/tournaments/new" class="bg-yellow-500 hover:bg-yellow-400 text-gray-900 font-bold py-3 px-8 rounded-xl flex items-center space-x-2 shadow-lg shadow-yellow-500/20 transition-all hover:shadow-yellow-500/40 hover:scale-105">
+                <a id="hero-create-btn" href="/tournaments/new" class="hidden bg-yellow-500 hover:bg-yellow-400 text-gray-900 font-bold py-3 px-8 rounded-xl flex items-center space-x-2 shadow-lg shadow-yellow-500/20 transition-all hover:shadow-yellow-500/40 hover:scale-105">
                     <i data-lucide="plus" class="w-5 h-5"></i>
                     <span>Create Tournament</span>
                 </a>
@@ -304,6 +304,19 @@
         const config = eventConfig[event.type];
         if (config) {
             addActivityEvent(config.message, config.icon, config.color);
+        }
+    });
+
+    // Show create button only for admins
+    window.addEventListener('authStateChanged', (e) => {
+        const user = e.detail;
+        const heroBtn = document.getElementById('hero-create-btn');
+        if (user && user.is_admin === true) {
+            heroBtn.classList.remove('hidden');
+            heroBtn.classList.add('flex');
+        } else {
+            heroBtn.classList.add('hidden');
+            heroBtn.classList.remove('flex');
         }
     });
 

@@ -73,17 +73,29 @@ class User(UserMixin, db.Model):
     @staticmethod
     def find_admin_by_username(username: str) -> 'User':
         """Find an admin user by their decrypted username."""
+        from cryptography.fernet import InvalidToken
         admins = User.query.filter_by(is_admin=True).all()
         for admin in admins:
-            if admin.username == username:
-                return admin
+            try:
+                if admin.username == username:
+                    return admin
+            except InvalidToken:
+                # Skip admins encrypted with a different key (stale data)
+                continue
         return None
     
     def to_dict(self, reveal_username: bool = False):
+        from cryptography.fernet import InvalidToken
+        username_value = None
+        if reveal_username:
+            try:
+                username_value = self.username
+            except InvalidToken:
+                username_value = '[encrypted with different key]'
         return {
             'id': self.id,
             'display_name': self.display_name,
-            'username': self.username if reveal_username else None,
+            'username': username_value,
             'is_admin': self.is_admin,
             'created_at': self.created_at.isoformat() if self.created_at else None,
         }
