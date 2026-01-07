@@ -433,6 +433,15 @@ window.ColumnBracket = {
         const isGroupStage = match.stage === 'group';
         const currentUser = window.getCurrentUser ? window.getCurrentUser() : null;
         
+        // Escape user-provided values for XSS protection
+        const safeTeam1Name = escapeHtml(team1.name);
+        const safeTeam2Name = escapeHtml(team2.name);
+        const safeTeam1Elo = parseInt(team1.elo_rating, 10) || 1500;
+        const safeTeam2Elo = parseInt(team2.elo_rating, 10) || 1500;
+        const safeMatchId = escapeHtml(match.id || 'Match Details');
+        const safeTeam1Id = escapeHtml(match.team1 || '');
+        const safeTeam2Id = escapeHtml(match.team2 || '');
+        
         document.getElementById('match-modal-title').textContent = match.id || 'Match Details';
         
         let content = '';
@@ -442,14 +451,14 @@ window.ColumnBracket = {
             content += `
                 <div style="display: flex; align-items: center; justify-content: center; gap: 1rem; margin-bottom: 1rem;">
                     <div style="text-align: center;">
-                        <div style="font-weight: 600; color: #F3F4F6; margin-bottom: 0.5rem;">${team1.name}</div>
+                        <div style="font-weight: 600; color: #F3F4F6; margin-bottom: 0.5rem;">${safeTeam1Name}</div>
                         <input type="number" id="team1-score" min="0" value="0" 
                             style="width: 60px; text-align: center; padding: 0.5rem; background: #111827; border: 1px solid #374151; border-radius: 0.375rem; color: white; font-size: 1.25rem;"
                             onchange="window.ColumnBracket.updateScoreSelection()">
                     </div>
                     <span style="color: #6B7280; font-weight: 600;">-</span>
                     <div style="text-align: center;">
-                        <div style="font-weight: 600; color: #F3F4F6; margin-bottom: 0.5rem;">${team2.name}</div>
+                        <div style="font-weight: 600; color: #F3F4F6; margin-bottom: 0.5rem;">${safeTeam2Name}</div>
                         <input type="number" id="team2-score" min="0" value="0" 
                             style="width: 60px; text-align: center; padding: 0.5rem; background: #111827; border: 1px solid #374151; border-radius: 0.375rem; color: white; font-size: 1.25rem;"
                             onchange="window.ColumnBracket.updateScoreSelection()">
@@ -466,23 +475,25 @@ window.ColumnBracket = {
         if (isCompleted) {
             const isTeam1Winner = match.winner === match.team1;
             const isDraw = match.is_draw;
-            const team1Link = match.team1 ? `/tournaments/${window.currentTournamentId}/teams/${match.team1}` : '#';
-            const team2Link = match.team2 ? `/tournaments/${window.currentTournamentId}/teams/${match.team2}` : '#';
+            const team1Link = match.team1 ? `/tournaments/${window.currentTournamentId}/teams/${safeTeam1Id}` : '#';
+            const team2Link = match.team2 ? `/tournaments/${window.currentTournamentId}/teams/${safeTeam2Id}` : '#';
+            const score1 = parseInt(match.team1_score, 10);
+            const score2 = parseInt(match.team2_score, 10);
             content += `
                 <div class="match-modal-team ${isDraw ? '' : (isTeam1Winner ? 'winner-display' : 'loser-display')}">
                     <div class="match-modal-team-info">
-                        <a href="${team1Link}" class="match-modal-team-name hover:text-yellow-400 transition-colors">${team1.name} ${!isDraw && isTeam1Winner ? '🏆' : ''}</a>
-                        <span class="match-modal-team-elo">ELO: ${team1.elo_rating}</span>
+                        <a href="${team1Link}" class="match-modal-team-name hover:text-yellow-400 transition-colors">${safeTeam1Name} ${!isDraw && isTeam1Winner ? '🏆' : ''}</a>
+                        <span class="match-modal-team-elo">ELO: ${safeTeam1Elo}</span>
                     </div>
-                    <span style="font-size: 1.25rem; font-weight: bold;">${match.team1_score ?? '-'}</span>
+                    <span style="font-size: 1.25rem; font-weight: bold;">${isNaN(score1) ? '-' : score1}</span>
                 </div>
                 <div class="match-modal-vs">${isDraw ? 'DRAW' : 'VS'}</div>
                 <div class="match-modal-team ${isDraw ? '' : (!isTeam1Winner ? 'winner-display' : 'loser-display')}">
                     <div class="match-modal-team-info">
-                        <a href="${team2Link}" class="match-modal-team-name hover:text-yellow-400 transition-colors">${team2.name} ${!isDraw && !isTeam1Winner ? '🏆' : ''}</a>
-                        <span class="match-modal-team-elo">ELO: ${team2.elo_rating}</span>
+                        <a href="${team2Link}" class="match-modal-team-name hover:text-yellow-400 transition-colors">${safeTeam2Name} ${!isDraw && !isTeam1Winner ? '🏆' : ''}</a>
+                        <span class="match-modal-team-elo">ELO: ${safeTeam2Elo}</span>
                     </div>
-                    <span style="font-size: 1.25rem; font-weight: bold;">${match.team2_score ?? '-'}</span>
+                    <span style="font-size: 1.25rem; font-weight: bold;">${isNaN(score2) ? '-' : score2}</span>
                 </div>
             `;
             content += '</div>';
@@ -492,7 +503,7 @@ window.ColumnBracket = {
             if (currentUser) {
                 content += `
                     <div id="reveal-captain-section" style="margin-top: 1rem; text-align: center;">
-                        <button onclick="window.ColumnBracket.revealOpponentCaptain('${match.id}')" 
+                        <button onclick="window.ColumnBracket.revealOpponentCaptain('${safeMatchId}')" 
                             class="text-sm text-yellow-500 hover:text-yellow-400 underline">
                             <i data-lucide="eye" class="w-4 h-4 inline mr-1"></i>
                             Reveal Opponent Captain Contact
@@ -506,24 +517,24 @@ window.ColumnBracket = {
             }
         } else if (!isGroupStage) {
             // Knockout: score inputs + winner selection
-            const team1Link = match.team1 ? `/tournaments/${window.currentTournamentId}/teams/${match.team1}` : '#';
-            const team2Link = match.team2 ? `/tournaments/${window.currentTournamentId}/teams/${match.team2}` : '#';
+            const team1Link = match.team1 ? `/tournaments/${window.currentTournamentId}/teams/${safeTeam1Id}` : '#';
+            const team2Link = match.team2 ? `/tournaments/${window.currentTournamentId}/teams/${safeTeam2Id}` : '#';
             content += `
                 <div style="display: flex; align-items: center; justify-content: center; gap: 1rem; margin-bottom: 1rem;">
                     <div style="text-align: center;">
-                        <a href="${team1Link}" style="font-weight: 600; color: #F3F4F6; margin-bottom: 0.5rem; display: block;" class="hover:text-yellow-400 transition-colors" onclick="event.stopPropagation()">${team1.name}</a>
+                        <a href="${team1Link}" style="font-weight: 600; color: #F3F4F6; margin-bottom: 0.5rem; display: block;" class="hover:text-yellow-400 transition-colors" onclick="event.stopPropagation()">${safeTeam1Name}</a>
                         <input type="number" id="team1-score" min="0" value="0" 
                             style="width: 60px; text-align: center; padding: 0.5rem; background: #111827; border: 1px solid #374151; border-radius: 0.375rem; color: white; font-size: 1.25rem;"
                             onchange="window.ColumnBracket.updateKnockoutScoreSelection()">
-                        <div style="font-size: 0.75rem; color: #9CA3AF; margin-top: 0.25rem;">ELO: ${team1.elo_rating}</div>
+                        <div style="font-size: 0.75rem; color: #9CA3AF; margin-top: 0.25rem;">ELO: ${safeTeam1Elo}</div>
                     </div>
                     <span style="color: #6B7280; font-weight: 600;">-</span>
                     <div style="text-align: center;">
-                        <a href="${team2Link}" style="font-weight: 600; color: #F3F4F6; margin-bottom: 0.5rem; display: block;" class="hover:text-yellow-400 transition-colors" onclick="event.stopPropagation()">${team2.name}</a>
+                        <a href="${team2Link}" style="font-weight: 600; color: #F3F4F6; margin-bottom: 0.5rem; display: block;" class="hover:text-yellow-400 transition-colors" onclick="event.stopPropagation()">${safeTeam2Name}</a>
                         <input type="number" id="team2-score" min="0" value="0" 
                             style="width: 60px; text-align: center; padding: 0.5rem; background: #111827; border: 1px solid #374151; border-radius: 0.375rem; color: white; font-size: 1.25rem;"
                             onchange="window.ColumnBracket.updateKnockoutScoreSelection()">
-                        <div style="font-size: 0.75rem; color: #9CA3AF; margin-top: 0.25rem;">ELO: ${team2.elo_rating}</div>
+                        <div style="font-size: 0.75rem; color: #9CA3AF; margin-top: 0.25rem;">ELO: ${safeTeam2Elo}</div>
                     </div>
                 </div>
                 <p style="text-align: center; color: #9CA3AF; font-size: 0.75rem; margin-bottom: 0.5rem;">
@@ -541,7 +552,7 @@ window.ColumnBracket = {
                 content += `
                     <div id="reveal-captain-section" style="margin-bottom: 1rem; text-align: center; padding: 0.75rem; background: #111827; border-radius: 0.5rem;">
                         <p class="text-xs text-gray-400 mb-2">Are you a captain in this match?</p>
-                        <button onclick="window.ColumnBracket.revealOpponentCaptain('${match.id}')" 
+                        <button onclick="window.ColumnBracket.revealOpponentCaptain('${safeMatchId}')" 
                             class="text-sm text-yellow-500 hover:text-yellow-400 underline">
                             <i data-lucide="eye" class="w-4 h-4 inline mr-1"></i>
                             Reveal Opponent Captain Contact
