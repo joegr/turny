@@ -28,7 +28,7 @@ steps:
       - '-e'
       - 'DB_HOST=/cloudsql/$PROJECT_ID:${_REGION}:turny-prod'
       - '-e'
-      - 'DB_PASS=${DB_PASS}'
+      - 'DB_PASS=$$DB_PASS'
       - '--'
       - 'python'
       - 'manage_db.py'
