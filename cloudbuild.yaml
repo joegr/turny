@@ -21,13 +21,17 @@ steps:
       - '${_REGION}-docker.pkg.dev/$PROJECT_ID/turny/tournament-platform:$COMMIT_SHA'
       - '-s'
       - '$PROJECT_ID:${_REGION}:turny-prod'
+      - '-e'
+      - 'DB_USER=tournament'
+      - '-e'
+      - 'DB_NAME=tournament_db'
+      - '-e'
+      - 'DB_HOST=/cloudsql/$PROJECT_ID:${_REGION}:turny-prod'
+      - '-e'
+      - 'DB_PASS=${DB_PASS}'
       - '--'
       - 'python'
       - 'manage_db.py'
-    env:
-      - 'DB_USER=tournament'
-      - 'DB_NAME=tournament_db'
-      - 'DB_HOST=/cloudsql/$PROJECT_ID:${_REGION}:turny-prod'
     secretEnv:
       - 'DB_PASS'
 
